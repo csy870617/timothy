@@ -161,6 +161,13 @@
   .dlg-foot .left { margin-right: auto; }
 
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .role-row { display: flex; align-items: center; gap: 8px; }
+  .role-row input[type=text] { flex: 1 1 auto; min-width: 0; }
+  .check { display: flex; align-items: center; gap: 4px; white-space: nowrap;
+           font-size: 13px; color: var(--muted); cursor: pointer; }
+  .check input { accent-color: var(--accent); width: 16px; height: 16px; }
+  .care-tag { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px;
+              border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 
   .visit { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
            margin-bottom: 8px; background: var(--bg); }
@@ -174,6 +181,8 @@
   .drow:first-child { border-top: 0; }
   .drow .dname { flex: 1 1 auto; font-weight: 600; }
   .drow .dcount { font-size: 12px; color: var(--muted); }
+  .drow .move { padding: 4px 7px; font-size: 12px; line-height: 1; }
+  .drow .move:disabled { opacity: .3; cursor: default; background: none; }
 
   .section-title { font-size: 12px; color: var(--muted); margin: 18px 0 8px; }
   hr.sep { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
@@ -257,7 +266,12 @@
         <input type="text" id="mName" required placeholder="예) 김은혜" /></label>
       <div class="grid2">
         <label class="field"><span>직분</span>
-          <input type="text" id="mRole" list="roleList" placeholder="예) 권사" />
+          <div class="role-row">
+            <input type="text" id="mRole" list="roleList" placeholder="예) 권사" />
+            <label class="check" title="더 관심이 필요한 분">
+              <input type="checkbox" id="mCare" /> 관심
+            </label>
+          </div>
           <datalist id="roleList">
             <option value="목사"></option><option value="전도사"></option>
             <option value="장로"></option><option value="권사"></option>
@@ -322,8 +336,8 @@
           </datalist>
         </label>
       </div>
-      <label class="field"><span>심방 내용</span>
-        <textarea id="vNote" required placeholder="나눈 이야기, 기도 제목, 이어서 챙길 일"></textarea></label>
+      <label class="field"><span>심방 내용 (선택)</span>
+        <textarea id="vNote" placeholder="나눈 이야기, 기도 제목, 이어서 챙길 일"></textarea></label>
       <div style="display:flex;gap:8px;justify-content:flex-end">
         <button type="button" id="visitCancelEdit" hidden>수정 취소</button>
         <button type="submit" class="primary" id="visitSubmit">심방 기록 추가</button>
@@ -410,6 +424,7 @@
         district: String(m.district || "").trim(),
         contact: String(m.contact || "").trim(),
         memo: String(m.memo || "").trim(),
+        care: !!m.care,
         visits: (Array.isArray(m.visits) ? m.visits : []).map(function (v) {
           return { id: v.id || uid(), date: v.date || "", kind: v.kind || "", note: v.note || "" };
         })
@@ -462,17 +477,26 @@
   }
 
   /* ---------- 화면 그리기 ---------- */
-  function districts() {
-    var seen = {};
-    (state.districts || []).forEach(function (d) { seen[d] = true; });
+  // 교인이 속한 그룹 중 목록에 없는 것을 뒤에 채워 넣는다 (순서를 늘 정할 수 있도록)
+  function syncDistricts() {
+    var known = {};
+    (state.districts || []).forEach(function (d) { known[d] = true; });
+
+    var extra = [];
     state.members.forEach(function (m) {
-      seen[(m.district || "").trim() || "미배정"] = true;
+      var d = (m.district || "").trim();
+      if (d && !known[d]) { known[d] = true; extra.push(d); }
     });
-    return Object.keys(seen).sort(function (a, b) {
-      if (a === "미배정") return 1;
-      if (b === "미배정") return -1;
-      return a.localeCompare(b, "ko");
-    });
+    extra.sort(function (a, b) { return a.localeCompare(b, "ko"); });
+    state.districts = (state.districts || []).concat(extra);
+  }
+
+  // 저장된 순서대로, 소속이 없는 교인이 있으면 미배정을 맨 뒤에
+  function districts() {
+    var list = (state.districts || []).slice();
+    var hasNone = state.members.some(function (m) { return !(m.district || "").trim(); });
+    if (hasNone) list.push("미배정");
+    return list;
   }
 
   function render() {
@@ -644,6 +668,12 @@
       role.textContent = m.role;
       name.appendChild(role);
     }
+    if (m.care) {
+      var tag = document.createElement("span");
+      tag.className = "care-tag";
+      tag.textContent = "관심";
+      name.appendChild(tag);
+    }
     who.appendChild(name);
 
     // 첫 줄에 최근 심방 날짜와 구분을 이어 붙인다
@@ -686,6 +716,7 @@
     $("mName").value = m ? m.name : "";
     $("mRole").value = m ? (m.role || "") : "";
     fillDistrictSelect(m ? (m.district || "") : ($("districtFilter").value || ""));
+    $("mCare").checked = m ? !!m.care : false;
     $("mContact").value = m ? (m.contact || "") : "";
     $("mMemo").value = m ? (m.memo || "") : "";
     $("memberDelete").hidden = !m;
@@ -701,6 +732,7 @@
       name: name,
       role: $("mRole").value.trim(),
       district: selectedDistrict(),
+      care: $("mCare").checked,
       contact: $("mContact").value.trim(),
       memo: $("mMemo").value.trim()
     };
@@ -758,7 +790,7 @@
   }
 
   function renderDistrictManage() {
-    var list = districts().filter(function (d) { return d !== "미배정"; });
+    var list = (state.districts || []).slice();
     var box = $("districtManageList");
     box.innerHTML = "";
 
@@ -772,7 +804,7 @@
 
     var wrap = document.createElement("div");
     wrap.className = "list";
-    list.forEach(function (d) {
+    list.forEach(function (d, i) {
       var row = document.createElement("div");
       row.className = "drow";
 
@@ -785,6 +817,20 @@
       count.className = "dcount";
       count.textContent = countInDistrict(d) + "명";
       row.appendChild(count);
+
+      var up = document.createElement("button");
+      up.type = "button"; up.className = "ghost move"; up.textContent = "▲";
+      up.title = "위로";
+      up.disabled = i === 0;
+      up.addEventListener("click", function () { moveDistrict(d, -1); });
+      row.appendChild(up);
+
+      var down = document.createElement("button");
+      down.type = "button"; down.className = "ghost move"; down.textContent = "▼";
+      down.title = "아래로";
+      down.disabled = i === list.length - 1;
+      down.addEventListener("click", function () { moveDistrict(d, 1); });
+      row.appendChild(down);
 
       var del = document.createElement("button");
       del.type = "button"; del.className = "ghost"; del.textContent = "삭제";
@@ -813,6 +859,18 @@
     var code = word.charCodeAt(word.length - 1);
     if (code < 0xAC00 || code > 0xD7A3) return "을(를)";
     return ((code - 0xAC00) % 28) ? "을" : "를";
+  }
+
+  function moveDistrict(name, step) {
+    var list = state.districts || [];
+    var from = list.indexOf(name);
+    var to = from + step;
+    if (from < 0 || to < 0 || to >= list.length) return;
+    list.splice(to, 0, list.splice(from, 1)[0]);
+    save();
+    render();
+    renderDistrictManage();
+    if (memberDlgOpen()) fillDistrictSelect(selectedDistrict());
   }
 
   function deleteDistrict(name) {
@@ -867,6 +925,12 @@
     if (!m) { $("detailDlg").close(); return; }
 
     $("detailName").textContent = m.name + (m.role ? " " + m.role : "");
+    if (m.care) {
+      var careTag = document.createElement("span");
+      careTag.className = "care-tag";
+      careTag.textContent = "관심";
+      $("detailName").appendChild(careTag);
+    }
 
     var meta = [(m.district || "미배정")];
     if (m.contact) meta.push(m.contact);
@@ -930,9 +994,11 @@
 
       box.appendChild(head);
 
-      var p = document.createElement("p");
-      p.textContent = v.note;
-      box.appendChild(p);
+      if (v.note) {
+        var p = document.createElement("p");
+        p.textContent = v.note;
+        box.appendChild(p);
+      }
       list.appendChild(box);
     });
   }
@@ -969,7 +1035,7 @@
     if (!m) return;
     var date = $("vDate").value;
     var note = $("vNote").value.trim();
-    if (!date || !note) return;
+    if (!date) return;
     if (!m.visits) m.visits = [];
 
     if (editingVisitId) {
@@ -1037,6 +1103,7 @@
     mode = "local";
     var stored = loadLocal();
     state = { members: normalize(stored.members), districts: normalizeDistricts(stored.districts) };
+    syncDistricts();
     $("localNotice").hidden = false;
     showGate(false);
     render();
@@ -1138,6 +1205,7 @@
           if (confirm("이 브라우저에 저장된 " + local.length + "명의 자료가 있습니다. 구글 계정으로 옮길까요?")) {
             state.members = local;
             state.districts = normalizeDistricts(stored.districts);
+            syncDistricts();
             writeNow();
             showGate(false);
             render();
@@ -1147,6 +1215,7 @@
       }
       state.members = normalize(data ? data.members : []);
       state.districts = normalizeDistricts(data ? data.districts : []);
+      syncDistricts();
       showGate(false);
       render();
     }, function (err) {
