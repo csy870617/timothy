@@ -86,12 +86,7 @@
   header.top h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.02em; }
   header.top p { margin: 0; color: var(--muted); font-size: 14px; }
   .head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-  .theme { display: flex; gap: 2px; background: var(--panel);
-           border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
-  .theme button { border: 0; background: none; border-radius: 999px;
-                  padding: 5px 9px; font-size: 15px; line-height: 1; opacity: .45; }
-  .theme button:hover { opacity: .8; background: var(--bg); }
-  .theme button[aria-pressed="true"] { opacity: 1; background: var(--accent-soft); }
+  .theme { border-radius: 999px; padding: 6px 10px; font-size: 16px; line-height: 1; }
   .account { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 
   .notice {
@@ -226,11 +221,7 @@
       <p>교인 한 사람 한 사람을 기억하고, 기도하고, 연락하기 위한 페이지입니다.</p>
     </div>
     <div class="head-right">
-      <div class="theme" id="themeBox" role="group" aria-label="화면 색">
-        <button type="button" data-theme-value="auto" title="시스템 설정">💻</button>
-        <button type="button" data-theme-value="light" title="밝게">☀️</button>
-        <button type="button" data-theme-value="dark" title="어둡게">🌙</button>
-      </div>
+      <button type="button" id="themeBtn" class="theme" aria-label="화면 색">💻</button>
       <div class="account" id="account" hidden>
         <button class="ghost" id="signOutBtn">로그아웃</button>
       </div>
@@ -1199,27 +1190,36 @@
     }
   }
 
-  function markTheme(value) {
-    [].forEach.call($("themeBox").children, function (btn) {
-      btn.setAttribute("aria-pressed", String(btn.dataset.themeValue === value));
-    });
+  // 누를 때마다 시스템 설정 → 밝게 → 어둡게 순으로 돌아간다
+  var THEMES = [
+    { value: "auto",  emoji: "💻", label: "시스템 설정" },
+    { value: "light", emoji: "☀️", label: "밝게" },
+    { value: "dark",  emoji: "🌙", label: "어둡게" }
+  ];
+  var themeIndex = 0;
+
+  function showTheme(i) {
+    var t = THEMES[i];
+    var next = THEMES[(i + 1) % THEMES.length];
+    $("themeBtn").textContent = t.emoji;
+    $("themeBtn").title = "화면 색: " + t.label + " (누르면 " + next.label + ")";
   }
 
   (function initTheme() {
     var saved = "auto";
     try { saved = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* 무시 */ }
-    if (saved !== "light" && saved !== "dark") saved = "auto";
-    applyTheme(saved);
-    markTheme(saved);
+    themeIndex = 0;
+    THEMES.forEach(function (t, i) { if (t.value === saved) themeIndex = i; });
+    applyTheme(THEMES[themeIndex].value);
+    showTheme(themeIndex);
   })();
 
-  $("themeBox").addEventListener("click", function (e) {
-    var btn = e.target.closest("button");
-    if (!btn) return;
-    var value = btn.dataset.themeValue;
+  $("themeBtn").addEventListener("click", function () {
+    themeIndex = (themeIndex + 1) % THEMES.length;
+    var value = THEMES[themeIndex].value;
     applyTheme(value);
-    markTheme(value);
-    try { localStorage.setItem(THEME_KEY, value); } catch (e2) { /* 무시 */ }
+    showTheme(themeIndex);
+    try { localStorage.setItem(THEME_KEY, value); } catch (e) { /* 무시 */ }
   });
 
   /* ---------- 구글 로그인 · 클라우드 저장 ---------- */
