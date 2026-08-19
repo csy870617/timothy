@@ -132,9 +132,16 @@
 
   .list { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
           box-shadow: var(--shadow); overflow: hidden; }
-  .row { display: flex; align-items: center; gap: 10px; width: 100%;
-         padding: 12px 14px; background: none; border: 0; border-top: 1px solid var(--line);
-         text-align: left; border-radius: 0; }
+  .row { display: flex; align-items: center; gap: 8px;
+         border-top: 1px solid var(--line); padding-right: 10px; }
+  .row-main { flex: 1 1 auto; min-width: 0; display: block; text-align: left;
+              background: none; border: 0; border-radius: 0; padding: 12px 14px; }
+  .row-main:hover { border-color: transparent; }
+  .care-btn { flex: 0 0 auto; border: 0; background: none; border-radius: 999px;
+              padding: 4px 7px; font-size: 17px; line-height: 1;
+              color: var(--muted); opacity: .55; }
+  .care-btn:hover { opacity: 1; background: var(--bg); border-color: transparent; }
+  .care-btn[aria-pressed="true"] { color: var(--accent); opacity: 1; }
   .row:first-child { border-top: 0; }
   .row:hover { background: var(--bg); }
   .row .who { flex: 1 1 auto; min-width: 0; }
@@ -663,10 +670,13 @@
     var days = lv ? daysSince(lv.date) : null;
     var level = careLevel(days);
 
-    var row = document.createElement("button");
-    row.type = "button";
+    var row = document.createElement("div");
     row.className = "row";
-    row.addEventListener("click", function () { openDetail(m.id); });
+
+    var main = document.createElement("button");
+    main.type = "button";
+    main.className = "row-main";
+    main.addEventListener("click", function () { openDetail(m.id); });
 
     var who = document.createElement("div");
     who.className = "who";
@@ -679,12 +689,6 @@
       role.className = "role";
       role.textContent = m.role;
       name.appendChild(role);
-    }
-    if (m.care) {
-      var tag = document.createElement("span");
-      tag.className = "care-tag";
-      tag.textContent = "관심";
-      name.appendChild(tag);
     }
     who.appendChild(name);
 
@@ -703,14 +707,35 @@
       ? (lv.note ? lv.note.replace(/\s+/g, " ") : "")
       : "심방 기록이 없습니다";
     who.appendChild(last);
-    row.appendChild(who);
+    main.appendChild(who);
+    row.appendChild(main);
 
     var badge = document.createElement("span");
     badge.className = "badge " + level;
     badge.textContent = badgeText(days);
     row.appendChild(badge);
 
+    // 홈 화면에서 바로 관심 표시를 켜고 끈다
+    var care = document.createElement("button");
+    care.type = "button";
+    care.className = "care-btn";
+    care.textContent = m.care ? "♥" : "♡";
+    care.title = m.care ? "관심 해제" : "관심 표시";
+    care.setAttribute("aria-label", m.name + " 관심 표시");
+    care.setAttribute("aria-pressed", String(!!m.care));
+    care.addEventListener("click", function () { toggleCare(m.id); });
+    row.appendChild(care);
+
     return row;
+  }
+
+  function toggleCare(id) {
+    var m = findMember(id);
+    if (!m) return;
+    m.care = !m.care;
+    save();
+    render();
+    if (openMemberId === id) renderDetail();
   }
 
   /* ---------- 성도 추가 / 수정 ---------- */
