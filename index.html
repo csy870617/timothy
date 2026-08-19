@@ -181,8 +181,9 @@
   .drow:first-child { border-top: 0; }
   .drow .dname { flex: 1 1 auto; font-weight: 600; }
   .drow .dcount { font-size: 12px; color: var(--muted); }
-  .drow .move { padding: 4px 7px; font-size: 12px; line-height: 1; }
-  .drow .move:disabled { opacity: .3; cursor: default; background: none; }
+  .drow { cursor: grab; user-select: none; -webkit-user-select: none; touch-action: pan-y; }
+  .drow .grip { color: var(--muted); font-size: 15px; line-height: 1; letter-spacing: -2px; }
+  .drow.dragging { cursor: grabbing; background: var(--accent-soft); opacity: .85; }
 
   .section-title { font-size: 12px; color: var(--muted); margin: 18px 0 8px; }
   hr.sep { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
@@ -297,16 +298,16 @@
   </form>
 </dialog>
 
-<!-- 그룹 관리 -->
+<!-- 그룹 편집 -->
 <dialog id="districtDlg">
-  <div class="dlg-head"><h3>그룹 관리</h3></div>
+  <div class="dlg-head"><h3>그룹 편집</h3></div>
   <div class="dlg-body">
     <form id="districtAddForm" class="add-row">
       <label class="field" style="flex:1;margin:0"><span>새 그룹 이름</span>
         <input type="text" id="districtNew" placeholder="예) 1그룹" /></label>
       <button type="submit" class="primary">추가</button>
     </form>
-    <div class="section-title">그룹 목록</div>
+    <div class="section-title">그룹 목록 <span class="hint">— 끌어서 순서를 바꿉니다 (휴대폰은 길게 누른 뒤 끌기)</span></div>
     <div id="districtManageList"></div>
   </div>
   <div class="dlg-foot"><button id="districtDlgClose">닫기</button></div>
@@ -368,6 +369,8 @@
   var openMemberId = null;
   var editingVisitId = null;
   var levelFilter = "";                      // 심방 간격 필터
+  var lastFilterValue = "";                  // 그룹 필터에서 마지막으로 고른 값
+  var MANAGE_DISTRICT = "__manage__";        // 두 펼침 메뉴의 "그룹 편집" 항목
 
   var $ = function (id) { return document.getElementById(id); };
 
@@ -540,11 +543,15 @@
       o.value = d; o.textContent = d;
       sel.appendChild(o);
     });
+    var edit = document.createElement("option");
+    edit.value = MANAGE_DISTRICT; edit.textContent = "⚙ 그룹 편집…";
+    sel.appendChild(edit);
+
     sel.value = list.indexOf(cur) >= 0 ? cur : "";
+    lastFilterValue = sel.value;
   }
 
   /* 성도 창의 그룹 펼침 메뉴 — 등록된 그룹 + 그룹 관리 열기 */
-  var MANAGE_DISTRICT = "__manage__";
   var lastDistrictValue = "";
 
   function fillDistrictSelect(current) {
@@ -564,7 +571,7 @@
     });
 
     var manage = document.createElement("option");
-    manage.value = MANAGE_DISTRICT; manage.textContent = "⚙ 그룹 추가 · 삭제…";
+    manage.value = MANAGE_DISTRICT; manage.textContent = "⚙ 그룹 편집…";
     sel.appendChild(manage);
 
     sel.value = current || "";
@@ -773,7 +780,7 @@
     render();
   });
 
-  /* ---------- 그룹 관리 ---------- */
+  /* ---------- 그룹 편집 ---------- */
   function memberDlgOpen() { return $("memberDlg").open; }
 
   function openDistrictDlg() {
@@ -804,9 +811,16 @@
 
     var wrap = document.createElement("div");
     wrap.className = "list";
-    list.forEach(function (d, i) {
+    list.forEach(function (d) {
       var row = document.createElement("div");
       row.className = "drow";
+      row.dataset.name = d;
+
+      var grip = document.createElement("span");
+      grip.className = "grip";
+      grip.textContent = "⠿";
+      grip.setAttribute("aria-hidden", "true");
+      row.appendChild(grip);
 
       var name = document.createElement("span");
       name.className = "dname";
@@ -818,29 +832,106 @@
       count.textContent = countInDistrict(d) + "명";
       row.appendChild(count);
 
-      var up = document.createElement("button");
-      up.type = "button"; up.className = "ghost move"; up.textContent = "▲";
-      up.title = "위로";
-      up.disabled = i === 0;
-      up.addEventListener("click", function () { moveDistrict(d, -1); });
-      row.appendChild(up);
-
-      var down = document.createElement("button");
-      down.type = "button"; down.className = "ghost move"; down.textContent = "▼";
-      down.title = "아래로";
-      down.disabled = i === list.length - 1;
-      down.addEventListener("click", function () { moveDistrict(d, 1); });
-      row.appendChild(down);
-
       var del = document.createElement("button");
       del.type = "button"; del.className = "ghost"; del.textContent = "삭제";
       del.addEventListener("click", function () { deleteDistrict(d); });
       row.appendChild(del);
 
+      makeDraggable(row);
       wrap.appendChild(row);
     });
     box.appendChild(wrap);
   }
+
+  /* 끌어서 순서 바꾸기 — 마우스는 바로, 휴대폰은 길게 누른 뒤 */
+  var LONG_PRESS_MS = 350;
+  var drag = null;
+
+  function makeDraggable(row) {
+    row.addEventListener("pointerdown", function (e) {
+      if (e.target.closest("button")) return;   // 삭제 단추는 그대로 눌리게
+      if (e.button !== undefined && e.button !== 0) return;
+
+      drag = {
+        row: row,
+        startY: e.clientY,
+        active: false,
+        touch: e.pointerType === "touch",
+        timer: null
+      };
+      row.setPointerCapture(e.pointerId);
+
+      if (drag.touch) {
+        drag.timer = setTimeout(function () {
+          if (drag) activateDrag();
+        }, LONG_PRESS_MS);
+      }
+    });
+
+    row.addEventListener("pointermove", function (e) {
+      if (!drag) return;
+
+      if (!drag.active) {
+        var moved = Math.abs(e.clientY - drag.startY);
+        if (drag.touch) {
+          if (moved > 10) clearDrag();          // 목록을 넘기려는 손짓이면 취소
+        } else if (moved > 4) {
+          activateDrag();                        // 마우스는 조금만 움직여도 시작
+        }
+        return;
+      }
+
+      var wrap = drag.row.parentElement;
+      if (!wrap) return;
+      var after = rowAfter(wrap, e.clientY);
+      if (after !== drag.row) wrap.insertBefore(drag.row, after);
+    });
+
+    row.addEventListener("pointerup", finishDrag);
+    row.addEventListener("pointercancel", finishDrag);
+  }
+
+  function activateDrag() {
+    drag.active = true;
+    drag.row.classList.add("dragging");
+  }
+
+  function clearDrag() {
+    if (!drag) return;
+    if (drag.timer) clearTimeout(drag.timer);
+    drag.row.classList.remove("dragging");
+    drag = null;
+  }
+
+  // 손가락·포인터 위치에 따라 어느 줄 앞에 놓을지 고른다
+  function rowAfter(wrap, y) {
+    var rows = [].slice.call(wrap.querySelectorAll(".drow:not(.dragging)"));
+    for (var i = 0; i < rows.length; i++) {
+      var box = rows[i].getBoundingClientRect();
+      if (y < box.top + box.height / 2) return rows[i];
+    }
+    return null;
+  }
+
+  function finishDrag() {
+    if (!drag) return;
+    var wasActive = drag.active;
+    var wrap = drag.row.parentElement;
+    clearDrag();
+    if (!wasActive || !wrap) return;
+
+    state.districts = [].slice.call(wrap.querySelectorAll(".drow"))
+      .map(function (r) { return r.dataset.name; });
+    save();
+    render();
+    renderDistrictManage();
+    if (memberDlgOpen()) fillDistrictSelect(selectedDistrict());
+  }
+
+  // 끄는 중에는 화면이 함께 밀리지 않도록
+  document.addEventListener("touchmove", function (e) {
+    if (drag && drag.active) e.preventDefault();
+  }, { passive: false });
 
   function addDistrict(name) {
     name = String(name || "").trim();
@@ -859,18 +950,6 @@
     var code = word.charCodeAt(word.length - 1);
     if (code < 0xAC00 || code > 0xD7A3) return "을(를)";
     return ((code - 0xAC00) % 28) ? "을" : "를";
-  }
-
-  function moveDistrict(name, step) {
-    var list = state.districts || [];
-    var from = list.indexOf(name);
-    var to = from + step;
-    if (from < 0 || to < 0 || to >= list.length) return;
-    list.splice(to, 0, list.splice(from, 1)[0]);
-    save();
-    render();
-    renderDistrictManage();
-    if (memberDlgOpen()) fillDistrictSelect(selectedDistrict());
   }
 
   function deleteDistrict(name) {
@@ -1068,7 +1147,16 @@
   });
 
   $("q").addEventListener("input", renderBoard);
-  $("districtFilter").addEventListener("change", renderBoard);
+  $("districtFilter").addEventListener("change", function () {
+    var sel = $("districtFilter");
+    if (sel.value === MANAGE_DISTRICT) {
+      sel.value = lastFilterValue;      // 편집 창을 열고 고른 값은 되돌림
+      openDistrictDlg();
+      return;
+    }
+    lastFilterValue = sel.value;
+    renderBoard();
+  });
 
   /* ---------- 화면 색 ---------- */
   var THEME_KEY = "church-care-theme";
