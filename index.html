@@ -135,6 +135,8 @@
   .row .who { flex: 1 1 auto; min-width: 0; }
   .row .name { font-weight: 600; }
   .row .role { color: var(--muted); font-size: 12px; margin-left: 6px; font-weight: 400; }
+  .row .when { color: var(--muted); font-size: 12px; margin-left: 8px; font-weight: 400;
+               font-variant-numeric: tabular-nums; }
   .row .last { font-size: 12px; color: var(--muted); margin-top: 1px;
                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
@@ -222,7 +224,6 @@
     <div class="grow"><input type="search" id="q" placeholder="이름 · 직분 · 구역 검색" /></div>
     <select id="levelSelect" style="width:auto"></select>
     <select id="districtFilter" style="width:auto"><option value="">전체 구역</option></select>
-    <button id="districtBtn">구역 관리</button>
     <button class="primary" id="addBtn">＋ 성도 추가</button>
   </div>
 
@@ -358,11 +359,11 @@
 
   /* ---------- 심방 간격 구간 (20일 / 40일 / 60일 / 기록 없음) ---------- */
   var LEVELS = [
-    { key: "lv0",  label: "20일 이내", min: 0,  max: 20 },
-    { key: "lv20", label: "20~40일",  min: 20, max: 40 },
-    { key: "lv40", label: "40~60일",  min: 40, max: 60 },
-    { key: "lv60", label: "60일 이상", min: 60, max: Infinity },
-    { key: "none", label: "기록 없음", min: null, max: null }
+    { key: "lv0",  label: "1일~",   min: 0,  max: 20 },
+    { key: "lv20", label: "20일~",  min: 20, max: 40 },
+    { key: "lv40", label: "40일~",  min: 40, max: 60 },
+    { key: "lv60", label: "60일~",  min: 60, max: Infinity },
+    { key: "none", label: "기록없음", min: null, max: null }
   ];
   function careLevel(days) {
     if (days === null) return "none";
@@ -493,7 +494,7 @@
     sel.innerHTML = "";
 
     var all = document.createElement("option");
-    all.value = ""; all.textContent = "심방 간격 전체 (" + state.members.length + ")";
+    all.value = ""; all.textContent = "심방간격 (" + state.members.length + ")";
     sel.appendChild(all);
 
     LEVELS.forEach(function (l) {
@@ -518,7 +519,7 @@
     sel.value = list.indexOf(cur) >= 0 ? cur : "";
   }
 
-  /* 성도 창의 구역 펼침 메뉴 — 이미 쓰고 있는 구역 + 새 구역 직접 입력 */
+  /* 성도 창의 구역 펼침 메뉴 — 등록된 구역 + 구역 관리 열기 */
   var MANAGE_DISTRICT = "__manage__";
   var lastDistrictValue = "";
 
@@ -645,11 +646,19 @@
     }
     who.appendChild(name);
 
+    // 첫 줄에 최근 심방 날짜와 구분을 이어 붙인다
+    if (lv) {
+      var when = document.createElement("span");
+      when.className = "when";
+      when.textContent = formatDate(lv.date) + (lv.kind ? " · " + lv.kind : "");
+      name.appendChild(when);
+    }
+
+    // 둘째 줄은 심방 내용
     var last = document.createElement("div");
     last.className = "last";
     last.textContent = lv
-      ? "최근 심방 " + formatDate(lv.date) + (lv.kind ? " · " + lv.kind : "") +
-        (lv.note ? " · " + lv.note.replace(/\s+/g, " ") : "")
+      ? (lv.note ? lv.note.replace(/\s+/g, " ") : "")
       : "심방 기록이 없습니다";
     who.appendChild(last);
     row.appendChild(who);
@@ -817,7 +826,6 @@
     if (openMemberId) renderDetail();
   }
 
-  $("districtBtn").addEventListener("click", openDistrictDlg);
   $("districtDlgClose").addEventListener("click", function () { $("districtDlg").close(); });
 
   $("districtAddForm").addEventListener("submit", function (e) {
