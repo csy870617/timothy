@@ -201,9 +201,6 @@
     <div class="grow"><input type="search" id="q" placeholder="이름 · 직분 · 구역 검색" /></div>
     <select id="districtFilter" style="width:auto"><option value="">전체 구역</option></select>
     <button class="primary" id="addBtn">＋ 성도 추가</button>
-    <button id="exportBtn">내보내기</button>
-    <button id="importBtn">가져오기</button>
-    <input type="file" id="importFile" accept="application/json" hidden />
   </div>
 
   <div id="board"></div>
@@ -246,10 +243,11 @@
           </datalist>
         </label>
         <label class="field"><span>구역</span>
-          <input type="text" id="mDistrict" list="districtList" placeholder="예) 1구역" />
-          <datalist id="districtList"></datalist>
+          <select id="mDistrict"></select>
         </label>
       </div>
+      <label class="field" id="mDistrictNewField" hidden><span>새 구역 이름</span>
+        <input type="text" id="mDistrictNew" placeholder="예) 3구역" /></label>
       <label class="field"><span>연락처 (선택)</span>
         <input type="text" id="mContact" placeholder="예) 010-0000-0000" /></label>
       <label class="field"><span>기도 제목 · 메모 (선택)</span>
@@ -472,14 +470,46 @@
       sel.appendChild(o);
     });
     sel.value = list.indexOf(cur) >= 0 ? cur : "";
+  }
 
-    var dl = $("districtList");
-    dl.innerHTML = "";
-    list.filter(function (d) { return d !== "미배정"; }).forEach(function (d) {
+  /* 성도 창의 구역 펼침 메뉴 — 이미 쓰고 있는 구역 + 새 구역 직접 입력 */
+  var NEW_DISTRICT = "__new__";
+
+  function fillDistrictSelect(current) {
+    var sel = $("mDistrict");
+    var list = districts().filter(function (d) { return d !== "미배정"; });
+    if (current && list.indexOf(current) < 0) list.push(current);
+
+    sel.innerHTML = "";
+    var blank = document.createElement("option");
+    blank.value = ""; blank.textContent = "미배정";
+    sel.appendChild(blank);
+
+    list.forEach(function (d) {
       var o = document.createElement("option");
-      o.value = d;
-      dl.appendChild(o);
+      o.value = d; o.textContent = d;
+      sel.appendChild(o);
     });
+
+    var add = document.createElement("option");
+    add.value = NEW_DISTRICT; add.textContent = "＋ 새 구역 직접 입력…";
+    sel.appendChild(add);
+
+    // 아직 구역이 하나도 없으면 바로 새 구역을 적도록
+    sel.value = current || (list.length ? "" : NEW_DISTRICT);
+    toggleDistrictInput();
+  }
+
+  function toggleDistrictInput() {
+    var isNew = $("mDistrict").value === NEW_DISTRICT;
+    $("mDistrictNewField").hidden = !isNew;
+    if (!isNew) $("mDistrictNew").value = "";
+  }
+
+  function selectedDistrict() {
+    return $("mDistrict").value === NEW_DISTRICT
+      ? $("mDistrictNew").value.trim()
+      : $("mDistrict").value;
   }
 
   function matches(m, q) {
@@ -597,7 +627,7 @@
     $("memberDlgTitle").textContent = m ? "성도 정보 수정" : "성도 추가";
     $("mName").value = m ? m.name : "";
     $("mRole").value = m ? (m.role || "") : "";
-    $("mDistrict").value = m ? (m.district || "") : ($("districtFilter").value || "");
+    fillDistrictSelect(m ? (m.district || "") : ($("districtFilter").value || ""));
     $("mContact").value = m ? (m.contact || "") : "";
     $("mMemo").value = m ? (m.memo || "") : "";
     $("memberDelete").hidden = !m;
@@ -612,7 +642,7 @@
     var data = {
       name: name,
       role: $("mRole").value.trim(),
-      district: $("mDistrict").value.trim(),
+      district: selectedDistrict(),
       contact: $("mContact").value.trim(),
       memo: $("mMemo").value.trim()
     };
@@ -628,6 +658,11 @@
     render();
     $("memberDlg").close();
     if (openMemberId) renderDetail();
+  });
+
+  $("mDistrict").addEventListener("change", function () {
+    toggleDistrictInput();
+    if ($("mDistrict").value === NEW_DISTRICT) $("mDistrictNew").focus();
   });
 
   $("memberCancel").addEventListener("click", function () { $("memberDlg").close(); });
@@ -791,43 +826,6 @@
   $("detailEdit").addEventListener("click", function () { openMemberDlg(openMemberId); });
   $("detailClose").addEventListener("click", function () { $("detailDlg").close(); });
   $("detailDlg").addEventListener("close", function () { openMemberId = null; editingVisitId = null; });
-
-  /* ---------- 내보내기 / 가져오기 ---------- */
-  $("exportBtn").addEventListener("click", function () {
-    var blob = new Blob([JSON.stringify({ members: state.members }, null, 2)],
-                        { type: "application/json" });
-    var url = URL.createObjectURL(blob);
-    var a = document.createElement("a");
-    a.href = url;
-    a.download = "심방기록-" + today() + ".json";
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  });
-
-  $("importBtn").addEventListener("click", function () { $("importFile").click(); });
-
-  $("importFile").addEventListener("change", function (e) {
-    var file = e.target.files && e.target.files[0];
-    if (!file) return;
-    var reader = new FileReader();
-    reader.onload = function () {
-      try {
-        var data = JSON.parse(reader.result);
-        if (!data || !Array.isArray(data.members)) throw new Error("형식 오류");
-        if (state.members.length &&
-            !confirm("현재 " + state.members.length + "명의 자료를 가져온 파일로 바꿉니다. 계속할까요?")) return;
-        state.members = normalize(data.members);
-        save();
-        render();
-      } catch (err) {
-        alert("가져오기에 실패했습니다. 이 페이지에서 내보낸 JSON 파일인지 확인해 주세요.");
-      }
-    };
-    reader.readAsText(file);
-    e.target.value = "";
-  });
 
   /* ---------- 이벤트 ---------- */
   $("addBtn").addEventListener("click", function () { openMemberDlg(null); });
