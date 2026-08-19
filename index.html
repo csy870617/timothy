@@ -4,6 +4,15 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>교구·구역 심방 관리</title>
+<script>
+  // 저장해 둔 화면 색을 CSS 보다 먼저 적용해, 열 때 색이 번쩍이지 않게 한다
+  try {
+    var savedTheme = localStorage.getItem("church-care-theme");
+    if (savedTheme === "light" || savedTheme === "dark") {
+      document.documentElement.setAttribute("data-theme", savedTheme);
+    }
+  } catch (e) { /* 저장소를 못 쓰면 시스템 설정을 따른다 */ }
+</script>
 <style>
   :root {
     --bg: #f6f4ef;
@@ -13,6 +22,7 @@
     --muted: #7d766c;
     --accent: #6b5b95;
     --accent-soft: #efeaf7;
+    --accent-text: #ffffff;
     --lv0: #2f7d59;   --lv0-soft: #e4f2ea;
     --lv20: #8a7318;  --lv20-soft: #f7f0d9;
     --lv40: #a5631c;  --lv40-soft: #faeadb;
@@ -21,8 +31,9 @@
     --radius: 14px;
     --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.05);
   }
+  /* 시스템 설정을 따를 때 (밝게를 직접 고른 경우는 제외) */
   @media (prefers-color-scheme: dark) {
-    :root {
+    :root:not([data-theme="light"]) {
       --bg: #1b1917;
       --panel: #242120;
       --line: #38332f;
@@ -30,6 +41,7 @@
       --muted: #a49c92;
       --accent: #a794d6;
       --accent-soft: #322b44;
+      --accent-text: #1b1917;
       --lv0: #7dc9a3;   --lv0-soft: #23342c;
       --lv20: #d8c165;  --lv20-soft: #383320;
       --lv40: #e0a468;  --lv40-soft: #3a2f22;
@@ -37,6 +49,24 @@
       --none: #b0a89e;  --none-soft: #322e2b;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
     }
+  }
+
+  /* 어둡게를 직접 고른 경우 */
+  :root[data-theme="dark"] {
+    --bg: #1b1917;
+    --panel: #242120;
+    --line: #38332f;
+    --text: #ece7e0;
+    --muted: #a49c92;
+    --accent: #a794d6;
+    --accent-soft: #322b44;
+    --accent-text: #1b1917;
+    --lv0: #7dc9a3;   --lv0-soft: #23342c;
+    --lv20: #d8c165;  --lv20-soft: #383320;
+    --lv40: #e0a468;  --lv40-soft: #3a2f22;
+    --lv60: #e79187;  --lv60-soft: #3a2724;
+    --none: #b0a89e;  --none-soft: #322e2b;
+    --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -55,6 +85,8 @@
   header.top .title { flex: 1 1 260px; }
   header.top h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.02em; }
   header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+  .head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+  .head-right select { width: auto; font-size: 13px; padding: 6px 9px; }
   .account { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
   .account .who { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -102,7 +134,7 @@
   button { cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
            background: var(--panel); padding: 9px 14px; }
   button:hover { border-color: var(--accent); }
-  button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+  button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-text); }
   button.primary:hover { filter: brightness(1.08); }
   button.ghost { background: transparent; border-color: transparent; color: var(--muted); padding: 6px 8px; }
   button.ghost:hover { color: var(--text); background: var(--bg); }
@@ -191,9 +223,16 @@
       <h1>교구 · 구역 심방 관리</h1>
       <p>구역 식구 한 사람 한 사람을 기억하고, 기도하고, 연락하기 위한 페이지입니다.</p>
     </div>
-    <div class="account" id="account" hidden>
-      <span class="who" id="accountWho"></span>
-      <button class="ghost" id="signOutBtn">로그아웃</button>
+    <div class="head-right">
+      <select id="themeSelect" aria-label="화면 색">
+        <option value="auto">시스템 설정</option>
+        <option value="light">밝게</option>
+        <option value="dark">어둡게</option>
+      </select>
+      <div class="account" id="account" hidden>
+        <span class="who" id="accountWho"></span>
+        <button class="ghost" id="signOutBtn">로그아웃</button>
+      </div>
     </div>
   </header>
 
@@ -1020,6 +1059,31 @@
 
   $("q").addEventListener("input", renderBoard);
   $("districtFilter").addEventListener("change", renderBoard);
+
+  /* ---------- 화면 색 ---------- */
+  var THEME_KEY = "church-care-theme";
+
+  function applyTheme(value) {
+    if (value === "light" || value === "dark") {
+      document.documentElement.setAttribute("data-theme", value);
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
+  }
+
+  (function initTheme() {
+    var saved = "auto";
+    try { saved = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* 무시 */ }
+    if (saved !== "light" && saved !== "dark") saved = "auto";
+    $("themeSelect").value = saved;
+    applyTheme(saved);
+  })();
+
+  $("themeSelect").addEventListener("change", function () {
+    var value = $("themeSelect").value;
+    applyTheme(value);
+    try { localStorage.setItem(THEME_KEY, value); } catch (e) { /* 무시 */ }
+  });
 
   /* ---------- 구글 로그인 · 클라우드 저장 ---------- */
   function showGate(show) { $("gate").classList.toggle("on", !!show); }
