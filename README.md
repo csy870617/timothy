@@ -33,13 +33,19 @@
 ## GitHub Pages 배포
 
 이 저장소에는 배포용 GitHub Actions 워크플로(`.github/workflows/pages.yml`)가 들어 있습니다.
-저장소 설정에서 한 번만 켜 주시면 됩니다.
+Pages 를 켜는 것만 저장소 주인이 직접 해 주셔야 합니다. (워크플로 토큰에는 Pages 를 처음 켜는 권한이 없습니다.)
 
 1. GitHub 저장소 → **Settings** → 왼쪽 메뉴 **Pages**
 2. **Build and deployment → Source** 를 **GitHub Actions** 로 선택
-3. **Actions** 탭에서 `Deploy to GitHub Pages` 워크플로가 초록불이 되면 완료
+3. **Actions** 탭 → `Deploy to GitHub Pages` → 실패한 최근 실행에서 **Re-run all jobs**
+   (또는 아무 내용이나 한 번 더 push)
+4. 초록불이 되면 배포 완료
 
 주소는 `https://<사용자이름>.github.io/<저장소이름>/` 입니다.
+이 저장소라면 <https://csy870617.github.io/timothy/> 입니다.
+
+> 1번을 하기 전에 워크플로를 돌리면 `Create Pages site failed - Resource not accessible by integration`
+> 으로 실패합니다. Pages 를 켠 뒤 다시 실행하면 정상 배포됩니다.
 
 > 저장소가 **Public** 이면 주소를 아는 누구나 페이지를 열 수 있습니다.
 > 아래 구글 로그인을 설정하면 허용된 계정만 자료를 볼 수 있습니다.
