@@ -13,12 +13,11 @@
     --muted: #7d766c;
     --accent: #6b5b95;
     --accent-soft: #efeaf7;
-    --ok: #2f7d59;
-    --ok-soft: #e4f2ea;
-    --warn: #a5701c;
-    --warn-soft: #faf0dd;
-    --late: #a8443a;
-    --late-soft: #fae8e5;
+    --lv0: #2f7d59;   --lv0-soft: #e4f2ea;
+    --lv20: #8a7318;  --lv20-soft: #f7f0d9;
+    --lv40: #a5631c;  --lv40-soft: #faeadb;
+    --lv60: #a8443a;  --lv60-soft: #fae8e5;
+    --none: #6b6259;  --none-soft: #eae6e0;
     --radius: 14px;
     --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.05);
   }
@@ -31,16 +30,16 @@
       --muted: #a49c92;
       --accent: #a794d6;
       --accent-soft: #322b44;
-      --ok: #7dc9a3;
-      --ok-soft: #23342c;
-      --warn: #d8ac5e;
-      --warn-soft: #38301f;
-      --late: #e79187;
-      --late-soft: #3a2724;
+      --lv0: #7dc9a3;   --lv0-soft: #23342c;
+      --lv20: #d8c165;  --lv20-soft: #383320;
+      --lv40: #e0a468;  --lv40-soft: #3a2f22;
+      --lv60: #e79187;  --lv60-soft: #3a2724;
+      --none: #b0a89e;  --none-soft: #322e2b;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
     }
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   body {
     margin: 0;
     background: var(--bg);
@@ -52,26 +51,45 @@
   }
   .wrap { max-width: 940px; margin: 0 auto; padding: 24px 16px 80px; }
 
-  header.top { margin-bottom: 20px; }
+  header.top { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 18px; flex-wrap: wrap; }
+  header.top .title { flex: 1 1 260px; }
   header.top h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.02em; }
   header.top p { margin: 0; color: var(--muted); font-size: 14px; }
+  .account { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+  .account .who { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-  .stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 18px 0; }
-  .stat {
-    background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
-    padding: 12px 14px;
+  .notice {
+    display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
+    background: var(--accent-soft); color: var(--accent);
+    border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 16px;
   }
-  .stat b { display: block; font-size: 22px; font-variant-numeric: tabular-nums; }
-  .stat span { font-size: 12px; color: var(--muted); }
-  .stat.late b { color: var(--late); }
-  .stat.warn b { color: var(--warn); }
+  .notice a { color: inherit; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
+  .chip {
+    display: flex; align-items: baseline; gap: 6px;
+    border: 1px solid var(--line); background: var(--panel);
+    border-radius: 999px; padding: 6px 13px; font-size: 13px; cursor: pointer;
+  }
+  .chip b { font-size: 15px; font-variant-numeric: tabular-nums; }
+  .chip[aria-pressed="true"] { border-color: currentColor; }
+  .chip.all { color: var(--text); }
+  .chip.lv0 { color: var(--lv0); }
+  .chip.lv20 { color: var(--lv20); }
+  .chip.lv40 { color: var(--lv40); }
+  .chip.lv60 { color: var(--lv60); }
+  .chip.none { color: var(--none); }
+  .chip[aria-pressed="true"].lv0 { background: var(--lv0-soft); }
+  .chip[aria-pressed="true"].lv20 { background: var(--lv20-soft); }
+  .chip[aria-pressed="true"].lv40 { background: var(--lv40-soft); }
+  .chip[aria-pressed="true"].lv60 { background: var(--lv60-soft); }
+  .chip[aria-pressed="true"].none { background: var(--none-soft); }
+  .chip[aria-pressed="true"].all { background: var(--accent-soft); color: var(--accent); }
 
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
   .toolbar .grow { flex: 1 1 180px; }
 
-  input, select, textarea, button {
-    font: inherit; color: inherit;
-  }
+  input, select, textarea, button { font: inherit; color: inherit; }
   input[type=text], input[type=date], input[type=search], select, textarea {
     width: 100%; padding: 9px 11px; background: var(--panel);
     border: 1px solid var(--line); border-radius: 10px; outline: none;
@@ -81,54 +99,48 @@
   label.field { display: block; margin-bottom: 10px; }
   label.field > span { display: block; font-size: 12px; color: var(--muted); margin-bottom: 4px; }
 
-  button {
-    cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
-    background: var(--panel); padding: 9px 14px;
-  }
+  button { cursor: pointer; border-radius: 10px; border: 1px solid var(--line);
+           background: var(--panel); padding: 9px 14px; }
   button:hover { border-color: var(--accent); }
   button.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
   button.primary:hover { filter: brightness(1.08); }
   button.ghost { background: transparent; border-color: transparent; color: var(--muted); padding: 6px 8px; }
   button.ghost:hover { color: var(--text); background: var(--bg); }
-  button.danger:hover { border-color: var(--late); color: var(--late); }
+  button.danger:hover { border-color: var(--lv60); color: var(--lv60); }
+  button.google { display: inline-flex; align-items: center; gap: 8px; }
+  button.google svg { width: 18px; height: 18px; }
 
   .district { margin-bottom: 22px; }
-  .district > h2 {
-    display: flex; align-items: baseline; gap: 8px;
-    font-size: 15px; margin: 0 0 8px 2px; letter-spacing: -.01em;
-  }
+  .district > h2 { display: flex; align-items: baseline; gap: 8px;
+                   font-size: 15px; margin: 0 0 8px 2px; letter-spacing: -.01em; }
   .district > h2 small { font-weight: 400; color: var(--muted); font-size: 12px; }
 
   .list { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius);
           box-shadow: var(--shadow); overflow: hidden; }
-  .row {
-    display: flex; align-items: center; gap: 10px; width: 100%;
-    padding: 12px 14px; background: none; border: 0; border-top: 1px solid var(--line);
-    text-align: left; border-radius: 0;
-  }
+  .row { display: flex; align-items: center; gap: 10px; width: 100%;
+         padding: 12px 14px; background: none; border: 0; border-top: 1px solid var(--line);
+         text-align: left; border-radius: 0; }
   .row:first-child { border-top: 0; }
   .row:hover { background: var(--bg); }
   .row .who { flex: 1 1 auto; min-width: 0; }
   .row .name { font-weight: 600; }
   .row .role { color: var(--muted); font-size: 12px; margin-left: 6px; font-weight: 400; }
   .row .last { font-size: 12px; color: var(--muted); margin-top: 1px;
-                white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+               white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-  .badge {
-    flex: 0 0 auto; font-size: 12px; padding: 3px 9px; border-radius: 999px;
-    font-variant-numeric: tabular-nums; white-space: nowrap;
-  }
-  .badge.ok { background: var(--ok-soft); color: var(--ok); }
-  .badge.warn { background: var(--warn-soft); color: var(--warn); }
-  .badge.late { background: var(--late-soft); color: var(--late); }
-  .badge.none { background: var(--accent-soft); color: var(--accent); }
+  .badge { flex: 0 0 auto; font-size: 12px; padding: 3px 9px; border-radius: 999px;
+           font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .badge.lv0 { background: var(--lv0-soft); color: var(--lv0); }
+  .badge.lv20 { background: var(--lv20-soft); color: var(--lv20); }
+  .badge.lv40 { background: var(--lv40-soft); color: var(--lv40); }
+  .badge.lv60 { background: var(--lv60-soft); color: var(--lv60); }
+  .badge.none { background: var(--none-soft); color: var(--none); }
 
   .empty { text-align: center; color: var(--muted); padding: 44px 16px; font-size: 14px; }
 
-  dialog {
-    border: 1px solid var(--line); border-radius: 16px; padding: 0; width: min(520px, calc(100vw - 24px));
-    background: var(--panel); color: var(--text); box-shadow: var(--shadow);
-  }
+  dialog { border: 1px solid var(--line); border-radius: 16px; padding: 0;
+           width: min(520px, calc(100vw - 24px)); background: var(--panel); color: var(--text);
+           box-shadow: var(--shadow); }
   dialog::backdrop { background: rgba(0,0,0,.4); }
   .dlg-head { display: flex; align-items: center; gap: 8px; padding: 16px 18px 0; }
   .dlg-head h3 { margin: 0; font-size: 17px; flex: 1; }
@@ -138,10 +150,8 @@
 
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 
-  .visit {
-    border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px;
-    background: var(--bg);
-  }
+  .visit { border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px;
+           margin-bottom: 8px; background: var(--bg); }
   .visit .vhead { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
   .visit .vhead b { color: var(--text); font-variant-numeric: tabular-nums; }
   .visit p { margin: 4px 0 0; white-space: pre-wrap; font-size: 14px; }
@@ -149,25 +159,43 @@
   .section-title { font-size: 12px; color: var(--muted); margin: 18px 0 8px; }
   hr.sep { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
   .hint { font-size: 12px; color: var(--muted); }
+
+  /* 로그인 화면 */
+  #gate { position: fixed; inset: 0; background: var(--bg); display: none;
+          align-items: center; justify-content: center; padding: 20px; z-index: 50; }
+  #gate.on { display: flex; }
+  #gate .card { background: var(--panel); border: 1px solid var(--line); border-radius: 18px;
+                box-shadow: var(--shadow); padding: 30px 26px; max-width: 380px; width: 100%;
+                text-align: center; }
+  #gate h2 { margin: 0 0 6px; font-size: 19px; }
+  #gate p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  #gateError { color: var(--lv60); font-size: 13px; margin-top: 14px; min-height: 18px; }
+
   @media (max-width: 520px) {
-    .stats { grid-template-columns: 1fr 1fr 1fr; }
-    .stat b { font-size: 18px; }
     .grid2 { grid-template-columns: 1fr; }
+    header.top { gap: 8px; }
   }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header class="top">
-    <h1>교구 · 구역 심방 관리</h1>
-    <p>구역 식구 한 사람 한 사람을 기억하고, 기도하고, 연락하기 위한 페이지입니다.</p>
+    <div class="title">
+      <h1>교구 · 구역 심방 관리</h1>
+      <p>구역 식구 한 사람 한 사람을 기억하고, 기도하고, 연락하기 위한 페이지입니다.</p>
+    </div>
+    <div class="account" id="account" hidden>
+      <span class="who" id="accountWho"></span>
+      <button class="ghost" id="signOutBtn">로그아웃</button>
+    </div>
   </header>
 
-  <div class="stats">
-    <div class="stat"><b id="statTotal">0</b><span>전체 인원</span></div>
-    <div class="stat warn"><b id="statWarn">0</b><span>60일 이상 미심방</span></div>
-    <div class="stat late"><b id="statLate">0</b><span>90일 이상 · 기록 없음</span></div>
+  <div class="notice" id="localNotice" hidden>
+    <span>구글 로그인이 설정되지 않아 <b>이 브라우저에만</b> 저장됩니다.</span>
+    <span class="hint">설정 방법은 README 의 “구글 로그인 · 자료 동기화 설정”을 참고하세요.</span>
   </div>
+
+  <div class="chips" id="chips"></div>
 
   <div class="toolbar">
     <div class="grow"><input type="search" id="q" placeholder="이름 · 직분 · 구역 검색" /></div>
@@ -179,6 +207,24 @@
   </div>
 
   <div id="board"></div>
+</div>
+
+<!-- 로그인 화면 -->
+<div id="gate">
+  <div class="card">
+    <h2>교구 · 구역 심방 관리</h2>
+    <p>구역 식구를 기억하고 기도하기 위한 페이지입니다.<br />구글 계정으로 로그인해 주세요.</p>
+    <button class="primary google" id="signInBtn">
+      <svg viewBox="0 0 48 48" aria-hidden="true">
+        <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/>
+        <path fill="#FF3D00" d="M6.3 14.7l6.6 4.8C14.7 15.1 19 12 24 12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 16.3 4 9.7 8.3 6.3 14.7z"/>
+        <path fill="#4CAF50" d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.2 26.7 36 24 36c-5.3 0-9.7-3.1-11.3-7.9l-6.5 5C9.5 39.6 16.2 44 24 44z"/>
+        <path fill="#1976D2" d="M43.6 20.5H42V20H24v8h11.3c-.8 2.2-2.2 4.1-4.1 5.6l6.2 5.2C39.9 36 44 30.6 44 24c0-1.2-.1-2.4-.4-3.5z"/>
+      </svg>
+      구글로 로그인
+    </button>
+    <div id="gateError"></div>
+  </div>
 </div>
 
 <!-- 성도 추가/수정 -->
@@ -257,38 +303,80 @@
   </div>
 </dialog>
 
+<script src="config.js"></script>
 <script>
 (function () {
   "use strict";
 
-  var KEY = "church-care-v1";
-  var state = load();
-  var editingMemberId = null;   // 성도 추가/수정 대상
-  var openMemberId = null;      // 상세 화면에 열린 성도
-  var editingVisitId = null;    // 수정 중인 심방 기록
+  var LOCAL_KEY = "church-care-v1";
+  var CFG = window.CHURCH_CONFIG || {};
+  var useCloud = !!(CFG.firebase && CFG.firebase.apiKey && CFG.firebase.projectId);
+
+  var state = { members: [] };
+  var mode = useCloud ? "cloud" : "local";   // 자료를 어디에 저장하는지
+  var cloud = null;                          // { db, docRef, save, ... }
+  var editingMemberId = null;
+  var openMemberId = null;
+  var editingVisitId = null;
+  var levelFilter = "";                      // 심방 간격 필터
 
   var $ = function (id) { return document.getElementById(id); };
 
+  /* ---------- 심방 간격 구간 (20일 / 40일 / 60일 / 기록 없음) ---------- */
+  var LEVELS = [
+    { key: "lv0",  label: "20일 이내", min: 0,  max: 20 },
+    { key: "lv20", label: "20~40일",  min: 20, max: 40 },
+    { key: "lv40", label: "40~60일",  min: 40, max: 60 },
+    { key: "lv60", label: "60일 이상", min: 60, max: Infinity },
+    { key: "none", label: "기록 없음", min: null, max: null }
+  ];
+  function careLevel(days) {
+    if (days === null) return "none";
+    if (days >= 60) return "lv60";
+    if (days >= 40) return "lv40";
+    if (days >= 20) return "lv20";
+    return "lv0";
+  }
+
   /* ---------- 저장소 ---------- */
-  function load() {
+  function loadLocal() {
     try {
-      var raw = localStorage.getItem(KEY);
+      var raw = localStorage.getItem(LOCAL_KEY);
       if (raw) {
         var parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.members)) return parsed;
+        if (parsed && Array.isArray(parsed.members)) return { members: parsed.members };
       }
-    } catch (e) { /* 손상된 데이터는 무시하고 새로 시작 */ }
+    } catch (e) { /* 손상된 자료는 무시하고 새로 시작 */ }
     return { members: [] };
   }
-  function save() {
+  function saveLocal() {
     try {
-      localStorage.setItem(KEY, JSON.stringify(state));
+      localStorage.setItem(LOCAL_KEY, JSON.stringify({ members: state.members }));
     } catch (e) {
       alert("저장에 실패했습니다. 브라우저 저장 공간을 확인해 주세요.");
     }
   }
+  function save() {
+    if (mode === "cloud" && cloud) cloud.save();
+    else saveLocal();
+  }
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+  }
+  function normalize(members) {
+    return (Array.isArray(members) ? members : []).map(function (m) {
+      return {
+        id: m.id || uid(),
+        name: String(m.name || "").trim(),
+        role: String(m.role || "").trim(),
+        district: String(m.district || "").trim(),
+        contact: String(m.contact || "").trim(),
+        memo: String(m.memo || "").trim(),
+        visits: (Array.isArray(m.visits) ? m.visits : []).map(function (v) {
+          return { id: v.id || uid(), date: v.date || "", kind: v.kind || "", note: v.note || "" };
+        })
+      };
+    });
   }
 
   /* ---------- 날짜 도우미 ---------- */
@@ -315,13 +403,9 @@
       return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
     })[0];
   }
-
-  /* ---------- 심방 간격 상태 ---------- */
-  function careLevel(days) {
-    if (days === null) return "none";
-    if (days >= 90) return "late";
-    if (days >= 60) return "warn";
-    return "ok";
+  function memberLevel(m) {
+    var lv = lastVisit(m);
+    return careLevel(lv ? daysSince(lv.date) : null);
   }
   function badgeText(days) {
     if (days === null) return "기록 없음";
@@ -334,8 +418,7 @@
   function districts() {
     var seen = {};
     state.members.forEach(function (m) {
-      var d = (m.district || "").trim() || "미배정";
-      seen[d] = true;
+      seen[(m.district || "").trim() || "미배정"] = true;
     });
     return Object.keys(seen).sort(function (a, b) {
       if (a === "미배정") return 1;
@@ -345,23 +428,37 @@
   }
 
   function render() {
-    renderStats();
+    renderChips();
     renderDistrictOptions();
     renderBoard();
   }
 
-  function renderStats() {
-    var total = state.members.length, warn = 0, late = 0;
-    state.members.forEach(function (m) {
-      var lv = lastVisit(m);
-      var d = lv ? daysSince(lv.date) : null;
-      var level = careLevel(d);
-      if (level === "warn") warn++;
-      if (level === "late" || level === "none") late++;
+  function renderChips() {
+    var counts = {};
+    LEVELS.forEach(function (l) { counts[l.key] = 0; });
+    state.members.forEach(function (m) { counts[memberLevel(m)]++; });
+
+    var box = $("chips");
+    box.innerHTML = "";
+    box.appendChild(chip("all", "전체", state.members.length));
+    LEVELS.forEach(function (l) { box.appendChild(chip(l.key, l.label, counts[l.key])); });
+  }
+
+  function chip(key, label, count) {
+    var b = document.createElement("button");
+    b.type = "button";
+    b.className = "chip " + (key === "all" ? "all" : key);
+    b.setAttribute("aria-pressed", String(levelFilter === (key === "all" ? "" : key)));
+    var n = document.createElement("b");
+    n.textContent = count;
+    b.appendChild(n);
+    b.appendChild(document.createTextNode(label));
+    b.addEventListener("click", function () {
+      levelFilter = key === "all" ? "" : key;
+      renderChips();
+      renderBoard();
     });
-    $("statTotal").textContent = total;
-    $("statWarn").textContent = warn;
-    $("statLate").textContent = late;
+    return b;
   }
 
   function renderDistrictOptions() {
@@ -387,8 +484,7 @@
 
   function matches(m, q) {
     if (!q) return true;
-    var hay = [m.name, m.role, m.district, m.contact, m.memo].join(" ").toLowerCase();
-    return hay.indexOf(q) >= 0;
+    return [m.name, m.role, m.district, m.contact, m.memo].join(" ").toLowerCase().indexOf(q) >= 0;
   }
 
   function renderBoard() {
@@ -408,7 +504,9 @@
     districts().forEach(function (d) {
       if (filter && d !== filter) return;
       var members = state.members.filter(function (m) {
-        return ((m.district || "").trim() || "미배정") === d && matches(m, q);
+        if (((m.district || "").trim() || "미배정") !== d) return false;
+        if (levelFilter && memberLevel(m) !== levelFilter) return false;
+        return matches(m, q);
       });
       if (!members.length) return;
 
@@ -440,7 +538,7 @@
     });
 
     if (!shown) {
-      board.innerHTML = '<div class="empty">검색 결과가 없습니다.</div>';
+      board.innerHTML = '<div class="empty">해당하는 성도가 없습니다.</div>';
     }
   }
 
@@ -486,6 +584,13 @@
   }
 
   /* ---------- 성도 추가 / 수정 ---------- */
+  function findMember(id) {
+    for (var i = 0; i < state.members.length; i++) {
+      if (state.members[i].id === id) return state.members[i];
+    }
+    return null;
+  }
+
   function openMemberDlg(id) {
     editingMemberId = id || null;
     var m = id ? findMember(id) : null;
@@ -498,13 +603,6 @@
     $("memberDelete").hidden = !m;
     $("memberDlg").showModal();
     $("mName").focus();
-  }
-
-  function findMember(id) {
-    for (var i = 0; i < state.members.length; i++) {
-      if (state.members[i].id === id) return state.members[i];
-    }
-    return null;
   }
 
   $("memberForm").addEventListener("submit", function (e) {
@@ -656,7 +754,7 @@
     if (!m) return;
     if (!confirm("이 심방 기록을 삭제할까요?")) return;
     m.visits = (m.visits || []).filter(function (x) { return x.id !== visitId; });
-    if (editingVisitId === visitId) { editingVisitId = null; }
+    if (editingVisitId === visitId) editingVisitId = null;
     save();
     resetVisitForm();
     renderDetail();
@@ -696,7 +794,8 @@
 
   /* ---------- 내보내기 / 가져오기 ---------- */
   $("exportBtn").addEventListener("click", function () {
-    var blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    var blob = new Blob([JSON.stringify({ members: state.members }, null, 2)],
+                        { type: "application/json" });
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
@@ -719,12 +818,7 @@
         if (!data || !Array.isArray(data.members)) throw new Error("형식 오류");
         if (state.members.length &&
             !confirm("현재 " + state.members.length + "명의 자료를 가져온 파일로 바꿉니다. 계속할까요?")) return;
-        data.members.forEach(function (m) {
-          if (!m.id) m.id = uid();
-          if (!Array.isArray(m.visits)) m.visits = [];
-          m.visits.forEach(function (v) { if (!v.id) v.id = uid(); });
-        });
-        state = { members: data.members };
+        state.members = normalize(data.members);
         save();
         render();
       } catch (err) {
@@ -740,7 +834,140 @@
   $("q").addEventListener("input", renderBoard);
   $("districtFilter").addEventListener("change", renderBoard);
 
-  render();
+  /* ---------- 구글 로그인 · 클라우드 저장 ---------- */
+  function showGate(show) { $("gate").classList.toggle("on", !!show); }
+  function gateError(msg) { $("gateError").textContent = msg || ""; }
+
+  function startLocalMode() {
+    mode = "local";
+    state = { members: normalize(loadLocal().members) };
+    $("localNotice").hidden = false;
+    showGate(false);
+    render();
+  }
+
+  function startCloudMode() {
+    showGate(true);
+    var V = CFG.firebaseVersion || "11.6.0";
+    var base = "https://www.gstatic.com/firebasejs/" + V + "/";
+
+    Promise.all([
+      import(base + "firebase-app.js"),
+      import(base + "firebase-auth.js"),
+      import(base + "firebase-firestore.js")
+    ]).then(function (mods) {
+      var appMod = mods[0], authMod = mods[1], fsMod = mods[2];
+      var app = appMod.initializeApp(CFG.firebase);
+      var auth = authMod.getAuth(app);
+      var db = fsMod.getFirestore(app);
+      var provider = new authMod.GoogleAuthProvider();
+
+      $("signInBtn").addEventListener("click", function () {
+        gateError("");
+        authMod.signInWithPopup(auth, provider).catch(function (err) {
+          if (err && /popup/.test(err.code || "")) {
+            authMod.signInWithRedirect(auth, provider);
+          } else {
+            gateError(authMessage(err));
+          }
+        });
+      });
+      $("signOutBtn").addEventListener("click", function () { authMod.signOut(auth); });
+
+      authMod.getRedirectResult(auth).catch(function (err) { gateError(authMessage(err)); });
+
+      authMod.onAuthStateChanged(auth, function (user) {
+        if (cloud && cloud.unsub) { cloud.unsub(); cloud = null; }
+
+        if (!user) {
+          state = { members: [] };
+          $("account").hidden = true;
+          render();
+          showGate(true);
+          return;
+        }
+
+        var allow = CFG.allowedEmails;
+        if (Array.isArray(allow) && allow.length &&
+            allow.map(String).map(function (s) { return s.toLowerCase(); })
+                 .indexOf((user.email || "").toLowerCase()) < 0) {
+          gateError((user.email || "이 계정") + " 은 접근이 허용되지 않았습니다. 담당자에게 문의해 주세요.");
+          authMod.signOut(auth);
+          return;
+        }
+
+        $("accountWho").textContent = user.email || user.displayName || "로그인됨";
+        $("account").hidden = false;
+        gateError("");
+        connectDoc(fsMod, db, user);
+      });
+    }).catch(function () {
+      gateError("로그인 모듈을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.");
+    });
+  }
+
+  function connectDoc(fsMod, db, user) {
+    var spaceId = CFG.spaceId || ("user-" + user.uid);
+    var ref = fsMod.doc(db, "spaces", spaceId);
+    var timer = null;
+    var firstLoad = true;
+
+    var writeNow = function () {
+      fsMod.setDoc(ref, {
+        members: state.members,
+        updatedAt: new Date().toISOString(),
+        updatedBy: user.email || user.uid
+      }).catch(function (err) {
+        alert("저장에 실패했습니다: " + (err && err.message ? err.message : err));
+      });
+    };
+
+    cloud = {
+      save: function () {
+        if (timer) clearTimeout(timer);
+        timer = setTimeout(writeNow, 400);
+      },
+      unsub: null
+    };
+
+    cloud.unsub = fsMod.onSnapshot(ref, function (snap) {
+      if (snap.metadata.hasPendingWrites) return;   // 내가 방금 쓴 내용
+      var data = snap.exists() ? snap.data() : null;
+
+      if (firstLoad) {
+        firstLoad = false;
+        var local = normalize(loadLocal().members);
+        if ((!data || !data.members || !data.members.length) && local.length) {
+          if (confirm("이 브라우저에 저장된 " + local.length + "명의 자료가 있습니다. 구글 계정으로 옮길까요?")) {
+            state.members = local;
+            writeNow();
+            showGate(false);
+            render();
+            return;
+          }
+        }
+      }
+      state.members = normalize(data ? data.members : []);
+      showGate(false);
+      render();
+    }, function (err) {
+      gateError("자료를 불러오지 못했습니다: " + (err && err.message ? err.message : err));
+      showGate(true);
+    });
+  }
+
+  function authMessage(err) {
+    if (!err) return "";
+    var code = err.code || "";
+    if (code === "auth/unauthorized-domain")
+      return "이 주소는 Firebase 승인된 도메인에 등록되어 있지 않습니다.";
+    if (code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request")
+      return "";
+    return "로그인에 실패했습니다: " + (err.message || code);
+  }
+
+  if (useCloud) startCloudMode();
+  else startLocalMode();
 })();
 </script>
 </body>
