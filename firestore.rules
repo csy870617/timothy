@@ -1,0 +1,23 @@
+// Firebase 콘솔 → Firestore Database → 규칙 탭에 붙여 넣고 "게시" 를 누르세요.
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /spaces/{spaceId} {
+
+      // 개인 자료: 로그인한 본인만 읽고 쓸 수 있습니다.
+      allow read, write: if request.auth != null
+                         && spaceId == 'user-' + request.auth.uid;
+
+      // 여러 사람이 함께 쓰는 명단.
+      // config.js 의 spaceId 를 채울 때 아래 이름과 이메일 목록을 실제 값으로 바꾸세요.
+      // allow read, write: if request.auth != null
+      //                    && spaceId == '1교구'
+      //                    && request.auth.token.email in [
+      //                         'mypastor@gmail.com',
+      //                         'leader1@gmail.com'
+      //                       ];
+    }
+  }
+}
