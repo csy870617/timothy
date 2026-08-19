@@ -206,6 +206,7 @@
 
   <div class="toolbar">
     <div class="grow"><input type="search" id="q" placeholder="이름 · 직분 · 구역 검색" /></div>
+    <select id="levelSelect" style="width:auto"></select>
     <select id="districtFilter" style="width:auto"><option value="">전체 구역</option></select>
     <button id="districtBtn">구역 관리</button>
     <button class="primary" id="addBtn">＋ 성도 추가</button>
@@ -467,15 +468,38 @@
     renderBoard();
   }
 
-  function renderChips() {
+  function levelCounts() {
     var counts = {};
     LEVELS.forEach(function (l) { counts[l.key] = 0; });
     state.members.forEach(function (m) { counts[memberLevel(m)]++; });
+    return counts;
+  }
 
+  function renderChips() {
+    var counts = levelCounts();
     var box = $("chips");
     box.innerHTML = "";
     box.appendChild(chip("all", "전체", state.members.length));
     LEVELS.forEach(function (l) { box.appendChild(chip(l.key, l.label, counts[l.key])); });
+    renderLevelSelect(counts);
+  }
+
+  function renderLevelSelect(counts) {
+    counts = counts || levelCounts();
+    var sel = $("levelSelect");
+    sel.innerHTML = "";
+
+    var all = document.createElement("option");
+    all.value = ""; all.textContent = "심방 간격 전체 (" + state.members.length + ")";
+    sel.appendChild(all);
+
+    LEVELS.forEach(function (l) {
+      var o = document.createElement("option");
+      o.value = l.key;
+      o.textContent = l.label + " (" + counts[l.key] + ")";
+      sel.appendChild(o);
+    });
+    sel.value = levelFilter;
   }
 
   function chip(key, label, count) {
@@ -988,6 +1012,12 @@
 
   /* ---------- 이벤트 ---------- */
   $("addBtn").addEventListener("click", function () { openMemberDlg(null); });
+  $("levelSelect").addEventListener("change", function () {
+    levelFilter = $("levelSelect").value;
+    renderChips();
+    renderBoard();
+  });
+
   $("q").addEventListener("input", renderBoard);
   $("districtFilter").addEventListener("change", renderBoard);
 
