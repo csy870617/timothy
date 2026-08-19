@@ -201,7 +201,7 @@
   <header class="top">
     <div class="title">
       <h1>교인 심방 관리</h1>
-      <p>구역 식구 한 사람 한 사람을 기억하고, 기도하고, 연락하기 위한 페이지입니다.</p>
+      <p>교인 한 사람 한 사람을 기억하고, 기도하고, 연락하기 위한 페이지입니다.</p>
     </div>
     <div class="head-right">
       <select id="themeSelect" aria-label="화면 색">
@@ -221,9 +221,9 @@
   </div>
 
   <div class="toolbar">
-    <div class="grow"><input type="search" id="q" placeholder="이름 · 직분 · 구역 검색" /></div>
+    <div class="grow"><input type="search" id="q" placeholder="이름 · 직분 · 그룹 검색" /></div>
     <select id="levelSelect" style="width:auto"></select>
-    <select id="districtFilter" style="width:auto"><option value="">전체 구역</option></select>
+    <select id="districtFilter" style="width:auto"><option value="">전체 그룹</option></select>
     <button class="primary" id="addBtn">＋ 성도 추가</button>
   </div>
 
@@ -234,7 +234,7 @@
 <div id="gate">
   <div class="card">
     <h2>교인 심방 관리</h2>
-    <p>구역 식구를 기억하고 기도하기 위한 페이지입니다.<br />구글 계정으로 로그인해 주세요.</p>
+    <p>교인 한 사람 한 사람을 기억하고 기도하기 위한 페이지입니다.<br />구글 계정으로 로그인해 주세요.</p>
     <button class="primary google" id="signInBtn">
       <svg viewBox="0 0 48 48" aria-hidden="true">
         <path fill="#FFC107" d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3.1 0 5.9 1.2 8 3.1l5.7-5.7C34.1 6.1 29.3 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.2-.1-2.4-.4-3.5z"/>
@@ -266,7 +266,7 @@
             <option value="학생"></option>
           </datalist>
         </label>
-        <label class="field"><span>구역</span>
+        <label class="field"><span>그룹</span>
           <select id="mDistrict"></select>
         </label>
       </div>
@@ -283,16 +283,16 @@
   </form>
 </dialog>
 
-<!-- 구역 관리 -->
+<!-- 그룹 관리 -->
 <dialog id="districtDlg">
-  <div class="dlg-head"><h3>구역 관리</h3></div>
+  <div class="dlg-head"><h3>그룹 관리</h3></div>
   <div class="dlg-body">
     <form id="districtAddForm" class="add-row">
-      <label class="field" style="flex:1;margin:0"><span>새 구역 이름</span>
-        <input type="text" id="districtNew" placeholder="예) 3구역" /></label>
+      <label class="field" style="flex:1;margin:0"><span>새 그룹 이름</span>
+        <input type="text" id="districtNew" placeholder="예) 1그룹" /></label>
       <button type="submit" class="primary">추가</button>
     </form>
-    <div class="section-title">구역 목록</div>
+    <div class="section-title">그룹 목록</div>
     <div id="districtManageList"></div>
   </div>
   <div class="dlg-foot"><button id="districtDlgClose">닫기</button></div>
@@ -510,7 +510,7 @@
     var list = districts();
     var sel = $("districtFilter");
     var cur = sel.value;
-    sel.innerHTML = '<option value="">전체 구역</option>';
+    sel.innerHTML = '<option value="">전체 그룹</option>';
     list.forEach(function (d) {
       var o = document.createElement("option");
       o.value = d; o.textContent = d;
@@ -519,7 +519,7 @@
     sel.value = list.indexOf(cur) >= 0 ? cur : "";
   }
 
-  /* 성도 창의 구역 펼침 메뉴 — 등록된 구역 + 구역 관리 열기 */
+  /* 성도 창의 그룹 펼침 메뉴 — 등록된 그룹 + 그룹 관리 열기 */
   var MANAGE_DISTRICT = "__manage__";
   var lastDistrictValue = "";
 
@@ -540,7 +540,7 @@
     });
 
     var manage = document.createElement("option");
-    manage.value = MANAGE_DISTRICT; manage.textContent = "⚙ 구역 추가 · 삭제…";
+    manage.value = MANAGE_DISTRICT; manage.textContent = "⚙ 그룹 추가 · 삭제…";
     sel.appendChild(manage);
 
     sel.value = current || "";
@@ -566,7 +566,7 @@
     if (!state.members.length) {
       board.innerHTML =
         '<div class="empty">아직 등록된 성도가 없습니다.<br />' +
-        '위의 <b>＋ 성도 추가</b> 로 구역 식구를 등록해 주세요.</div>';
+        '위의 <b>＋ 성도 추가</b> 로 교인을 등록해 주세요.</div>';
       return;
     }
 
@@ -578,7 +578,7 @@
         if (levelFilter && memberLevel(m) !== levelFilter) return false;
         return matches(m, q);
       });
-      // 성도가 아직 없는 구역도, 걸러 보는 중이 아니라면 자리를 보여 준다
+      // 성도가 아직 없는 그룹도, 걸러 보는 중이 아니라면 자리를 보여 준다
       var plain = !q && !levelFilter;
       if (!members.length && !(plain && (state.districts || []).indexOf(d) >= 0)) return;
 
@@ -610,7 +610,7 @@
         var empty = document.createElement("div");
         empty.className = "empty";
         empty.style.padding = "18px 14px";
-        empty.textContent = "아직 이 구역에 등록된 성도가 없습니다.";
+        empty.textContent = "아직 이 그룹에 등록된 성도가 없습니다.";
         list.appendChild(empty);
       }
       wrap.appendChild(list);
@@ -741,7 +741,7 @@
     render();
   });
 
-  /* ---------- 구역 관리 ---------- */
+  /* ---------- 그룹 관리 ---------- */
   function memberDlgOpen() { return $("memberDlg").open; }
 
   function openDistrictDlg() {
@@ -765,7 +765,7 @@
     if (!list.length) {
       var empty = document.createElement("p");
       empty.className = "hint";
-      empty.textContent = "아직 구역이 없습니다. 위에서 추가해 주세요.";
+      empty.textContent = "아직 그룹이 없습니다. 위에서 추가해 주세요.";
       box.appendChild(empty);
       return;
     }
@@ -799,8 +799,8 @@
   function addDistrict(name) {
     name = String(name || "").trim();
     if (!name) return false;
-    if (name === "미배정") { alert("‘미배정’ 은 구역 이름으로 쓸 수 없습니다."); return false; }
-    if (districts().indexOf(name) >= 0) { alert("이미 있는 구역입니다."); return false; }
+    if (name === "미배정") { alert("‘미배정’ 은 그룹 이름으로 쓸 수 없습니다."); return false; }
+    if (districts().indexOf(name) >= 0) { alert("이미 있는 그룹입니다."); return false; }
     state.districts.push(name);
     save();
     render();
@@ -808,11 +808,18 @@
     return true;
   }
 
+  // 이름 끝소리에 맞춰 을/를 을 고른다
+  function objectParticle(word) {
+    var code = word.charCodeAt(word.length - 1);
+    if (code < 0xAC00 || code > 0xD7A3) return "을(를)";
+    return ((code - 0xAC00) % 28) ? "을" : "를";
+  }
+
   function deleteDistrict(name) {
     var n = countInDistrict(name);
     var msg = n
-      ? "‘" + name + "’ 을 지우면 이 구역의 " + n + "명이 미배정으로 옮겨집니다. 계속할까요?"
-      : "‘" + name + "’ 구역을 지울까요?";
+      ? "‘" + name + "’" + objectParticle(name) + " 지우면 이 그룹의 " + n + "명이 미배정으로 옮겨집니다. 계속할까요?"
+      : "‘" + name + "’ 그룹을 지울까요?";
     if (!confirm(msg)) return;
 
     state.districts = (state.districts || []).filter(function (d) { return d !== name; });
@@ -834,7 +841,7 @@
     if (!addDistrict(name)) return;
     $("districtNew").value = "";
     $("districtNew").focus();
-    // 성도 창에서 열었다면 방금 만든 구역을 골라 둔다
+    // 성도 창에서 열었다면 방금 만든 그룹을 골라 둔다
     if (memberDlgOpen()) fillDistrictSelect(name);
   });
 
