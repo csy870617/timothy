@@ -168,11 +168,6 @@
   .dlg-foot .left { margin-right: auto; }
 
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
-  .role-row { display: flex; align-items: center; gap: 8px; }
-  .role-row input[type=text] { flex: 1 1 auto; min-width: 0; }
-  .check { display: flex; align-items: center; gap: 4px; white-space: nowrap;
-           font-size: 13px; color: var(--muted); cursor: pointer; }
-  .check input { accent-color: var(--accent); width: 16px; height: 16px; }
   .care-tag { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px;
               border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
 
@@ -270,12 +265,7 @@
         <input type="text" id="mName" required placeholder="예) 김은혜" /></label>
       <div class="grid2">
         <label class="field"><span>직분</span>
-          <div class="role-row">
-            <input type="text" id="mRole" list="roleList" placeholder="예) 권사" />
-            <label class="check" title="더 관심이 필요한 분">
-              <input type="checkbox" id="mCare" /> 관심
-            </label>
-          </div>
+          <input type="text" id="mRole" list="roleList" placeholder="예) 권사" />
           <datalist id="roleList">
             <option value="목사"></option><option value="전도사"></option>
             <option value="장로"></option><option value="권사"></option>
@@ -744,7 +734,6 @@
     $("mName").value = m ? m.name : "";
     $("mRole").value = m ? (m.role || "") : "";
     fillDistrictSelect(m ? (m.district || "") : ($("districtFilter").value || ""));
-    $("mCare").checked = m ? !!m.care : false;
     $("mContact").value = m ? (m.contact || "") : "";
     $("mMemo").value = m ? (m.memo || "") : "";
     $("memberDelete").hidden = !m;
@@ -760,7 +749,6 @@
       name: name,
       role: $("mRole").value.trim(),
       district: selectedDistrict(),
-      care: $("mCare").checked,
       contact: $("mContact").value.trim(),
       memo: $("mMemo").value.trim()
     };
@@ -769,6 +757,7 @@
       if (m) { Object.keys(data).forEach(function (k) { m[k] = data[k]; }); }
     } else {
       data.id = uid();
+      data.care = false;          // 관심 표시는 명단의 하트로 켠다
       data.visits = [];
       state.members.push(data);
     }
