@@ -156,6 +156,13 @@
   .visit .vhead b { color: var(--text); font-variant-numeric: tabular-nums; }
   .visit p { margin: 4px 0 0; white-space: pre-wrap; font-size: 14px; }
 
+  .add-row { display: flex; gap: 8px; align-items: flex-end; }
+  .drow { display: flex; align-items: center; gap: 10px;
+          padding: 10px 14px; border-top: 1px solid var(--line); }
+  .drow:first-child { border-top: 0; }
+  .drow .dname { flex: 1 1 auto; font-weight: 600; }
+  .drow .dcount { font-size: 12px; color: var(--muted); }
+
   .section-title { font-size: 12px; color: var(--muted); margin: 18px 0 8px; }
   hr.sep { border: 0; border-top: 1px solid var(--line); margin: 16px 0; }
   .hint { font-size: 12px; color: var(--muted); }
@@ -200,6 +207,7 @@
   <div class="toolbar">
     <div class="grow"><input type="search" id="q" placeholder="이름 · 직분 · 구역 검색" /></div>
     <select id="districtFilter" style="width:auto"><option value="">전체 구역</option></select>
+    <button id="districtBtn">구역 관리</button>
     <button class="primary" id="addBtn">＋ 성도 추가</button>
   </div>
 
@@ -261,6 +269,21 @@
   </form>
 </dialog>
 
+<!-- 구역 관리 -->
+<dialog id="districtDlg">
+  <div class="dlg-head"><h3>구역 관리</h3></div>
+  <div class="dlg-body">
+    <form id="districtAddForm" class="add-row">
+      <label class="field" style="flex:1;margin:0"><span>새 구역 이름</span>
+        <input type="text" id="districtNew" placeholder="예) 3구역" /></label>
+      <button type="submit" class="primary">추가</button>
+    </form>
+    <div class="section-title">구역 목록</div>
+    <div id="districtManageList"></div>
+  </div>
+  <div class="dlg-foot"><button id="districtDlgClose">닫기</button></div>
+</dialog>
+
 <!-- 성도 상세 · 심방 기록 -->
 <dialog id="detailDlg">
   <div class="dlg-head">
@@ -310,7 +333,7 @@
   var CFG = window.CHURCH_CONFIG || {};
   var useCloud = !!(CFG.firebase && CFG.firebase.apiKey && CFG.firebase.projectId);
 
-  var state = { members: [] };
+  var state = { members: [], districts: [] };
   var mode = useCloud ? "cloud" : "local";   // 자료를 어디에 저장하는지
   var cloud = null;                          // { db, docRef, save, ... }
   var editingMemberId = null;
@@ -342,14 +365,17 @@
       var raw = localStorage.getItem(LOCAL_KEY);
       if (raw) {
         var parsed = JSON.parse(raw);
-        if (parsed && Array.isArray(parsed.members)) return { members: parsed.members };
+        if (parsed && Array.isArray(parsed.members)) {
+          return { members: parsed.members, districts: parsed.districts };
+        }
       }
     } catch (e) { /* 손상된 자료는 무시하고 새로 시작 */ }
-    return { members: [] };
+    return { members: [], districts: [] };
   }
   function saveLocal() {
     try {
-      localStorage.setItem(LOCAL_KEY, JSON.stringify({ members: state.members }));
+      localStorage.setItem(LOCAL_KEY,
+        JSON.stringify({ members: state.members, districts: state.districts }));
     } catch (e) {
       alert("저장에 실패했습니다. 브라우저 저장 공간을 확인해 주세요.");
     }
@@ -375,6 +401,15 @@
         })
       };
     });
+  }
+
+  function normalizeDistricts(list) {
+    var seen = {}, out = [];
+    (Array.isArray(list) ? list : []).forEach(function (d) {
+      var name = String(d || "").trim();
+      if (name && name !== "미배정" && !seen[name]) { seen[name] = true; out.push(name); }
+    });
+    return out;
   }
 
   /* ---------- 날짜 도우미 ---------- */
@@ -415,6 +450,7 @@
   /* ---------- 화면 그리기 ---------- */
   function districts() {
     var seen = {};
+    (state.districts || []).forEach(function (d) { seen[d] = true; });
     state.members.forEach(function (m) {
       seen[(m.district || "").trim() || "미배정"] = true;
     });
@@ -474,6 +510,8 @@
 
   /* 성도 창의 구역 펼침 메뉴 — 이미 쓰고 있는 구역 + 새 구역 직접 입력 */
   var NEW_DISTRICT = "__new__";
+  var MANAGE_DISTRICT = "__manage__";
+  var lastDistrictValue = "";
 
   function fillDistrictSelect(current) {
     var sel = $("mDistrict");
@@ -495,8 +533,13 @@
     add.value = NEW_DISTRICT; add.textContent = "＋ 새 구역 직접 입력…";
     sel.appendChild(add);
 
+    var manage = document.createElement("option");
+    manage.value = MANAGE_DISTRICT; manage.textContent = "⚙ 구역 추가 · 삭제…";
+    sel.appendChild(manage);
+
     // 아직 구역이 하나도 없으면 바로 새 구역을 적도록
     sel.value = current || (list.length ? "" : NEW_DISTRICT);
+    lastDistrictValue = sel.value;
     toggleDistrictInput();
   }
 
@@ -538,7 +581,9 @@
         if (levelFilter && memberLevel(m) !== levelFilter) return false;
         return matches(m, q);
       });
-      if (!members.length) return;
+      // 성도가 아직 없는 구역도, 걸러 보는 중이 아니라면 자리를 보여 준다
+      var plain = !q && !levelFilter;
+      if (!members.length && !(plain && (state.districts || []).indexOf(d) >= 0)) return;
 
       // 심방이 오래된 순으로 — 먼저 챙겨야 할 분이 위로
       members.sort(function (a, b) {
@@ -562,12 +607,20 @@
 
       var list = document.createElement("div");
       list.className = "list";
-      members.forEach(function (m) { list.appendChild(memberRow(m)); });
+      if (members.length) {
+        members.forEach(function (m) { list.appendChild(memberRow(m)); });
+      } else {
+        var empty = document.createElement("div");
+        empty.className = "empty";
+        empty.style.padding = "18px 14px";
+        empty.textContent = "아직 이 구역에 등록된 성도가 없습니다.";
+        list.appendChild(empty);
+      }
       wrap.appendChild(list);
       board.appendChild(wrap);
     });
 
-    if (!shown) {
+    if (!shown && !board.children.length) {
       board.innerHTML = '<div class="empty">해당하는 성도가 없습니다.</div>';
     }
   }
@@ -661,8 +714,16 @@
   });
 
   $("mDistrict").addEventListener("change", function () {
+    var sel = $("mDistrict");
+    if (sel.value === MANAGE_DISTRICT) {
+      sel.value = lastDistrictValue;     // 관리 창을 열고 고르기는 되돌림
+      toggleDistrictInput();
+      openDistrictDlg();
+      return;
+    }
+    lastDistrictValue = sel.value;
     toggleDistrictInput();
-    if ($("mDistrict").value === NEW_DISTRICT) $("mDistrictNew").focus();
+    if (sel.value === NEW_DISTRICT) $("mDistrictNew").focus();
   });
 
   $("memberCancel").addEventListener("click", function () { $("memberDlg").close(); });
@@ -676,6 +737,104 @@
     $("memberDlg").close();
     if (openMemberId === m.id) { $("detailDlg").close(); openMemberId = null; }
     render();
+  });
+
+  /* ---------- 구역 관리 ---------- */
+  function memberDlgOpen() { return $("memberDlg").open; }
+
+  function openDistrictDlg() {
+    $("districtNew").value = "";
+    renderDistrictManage();
+    $("districtDlg").showModal();
+    $("districtNew").focus();
+  }
+
+  function countInDistrict(name) {
+    return state.members.filter(function (m) {
+      return (m.district || "").trim() === name;
+    }).length;
+  }
+
+  function renderDistrictManage() {
+    var list = districts().filter(function (d) { return d !== "미배정"; });
+    var box = $("districtManageList");
+    box.innerHTML = "";
+
+    if (!list.length) {
+      var empty = document.createElement("p");
+      empty.className = "hint";
+      empty.textContent = "아직 구역이 없습니다. 위에서 추가해 주세요.";
+      box.appendChild(empty);
+      return;
+    }
+
+    var wrap = document.createElement("div");
+    wrap.className = "list";
+    list.forEach(function (d) {
+      var row = document.createElement("div");
+      row.className = "drow";
+
+      var name = document.createElement("span");
+      name.className = "dname";
+      name.textContent = d;
+      row.appendChild(name);
+
+      var count = document.createElement("span");
+      count.className = "dcount";
+      count.textContent = countInDistrict(d) + "명";
+      row.appendChild(count);
+
+      var del = document.createElement("button");
+      del.type = "button"; del.className = "ghost"; del.textContent = "삭제";
+      del.addEventListener("click", function () { deleteDistrict(d); });
+      row.appendChild(del);
+
+      wrap.appendChild(row);
+    });
+    box.appendChild(wrap);
+  }
+
+  function addDistrict(name) {
+    name = String(name || "").trim();
+    if (!name) return false;
+    if (name === "미배정") { alert("‘미배정’ 은 구역 이름으로 쓸 수 없습니다."); return false; }
+    if (districts().indexOf(name) >= 0) { alert("이미 있는 구역입니다."); return false; }
+    state.districts.push(name);
+    save();
+    render();
+    renderDistrictManage();
+    return true;
+  }
+
+  function deleteDistrict(name) {
+    var n = countInDistrict(name);
+    var msg = n
+      ? "‘" + name + "’ 을 지우면 이 구역의 " + n + "명이 미배정으로 옮겨집니다. 계속할까요?"
+      : "‘" + name + "’ 구역을 지울까요?";
+    if (!confirm(msg)) return;
+
+    state.districts = (state.districts || []).filter(function (d) { return d !== name; });
+    state.members.forEach(function (m) {
+      if ((m.district || "").trim() === name) m.district = "";
+    });
+    save();
+    render();
+    renderDistrictManage();
+    if (memberDlgOpen()) fillDistrictSelect(selectedDistrict() === name ? "" : selectedDistrict());
+    if (openMemberId) renderDetail();
+  }
+
+  $("districtBtn").addEventListener("click", openDistrictDlg);
+  $("districtDlgClose").addEventListener("click", function () { $("districtDlg").close(); });
+
+  $("districtAddForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    var name = $("districtNew").value.trim();
+    if (!addDistrict(name)) return;
+    $("districtNew").value = "";
+    $("districtNew").focus();
+    // 성도 창에서 열었다면 방금 만든 구역을 골라 둔다
+    if (memberDlgOpen()) fillDistrictSelect(name);
   });
 
   /* ---------- 상세 · 심방 기록 ---------- */
@@ -838,7 +997,8 @@
 
   function startLocalMode() {
     mode = "local";
-    state = { members: normalize(loadLocal().members) };
+    var stored = loadLocal();
+    state = { members: normalize(stored.members), districts: normalizeDistricts(stored.districts) };
     $("localNotice").hidden = false;
     showGate(false);
     render();
@@ -878,7 +1038,7 @@
         if (cloud && cloud.unsub) { cloud.unsub(); cloud = null; }
 
         if (!user) {
-          state = { members: [] };
+          state = { members: [], districts: [] };
           $("account").hidden = true;
           render();
           showGate(true);
@@ -913,6 +1073,7 @@
     var writeNow = function () {
       fsMod.setDoc(ref, {
         members: state.members,
+        districts: state.districts,
         updatedAt: new Date().toISOString(),
         updatedBy: user.email || user.uid
       }).catch(function (err) {
@@ -934,10 +1095,12 @@
 
       if (firstLoad) {
         firstLoad = false;
-        var local = normalize(loadLocal().members);
+        var stored = loadLocal();
+        var local = normalize(stored.members);
         if ((!data || !data.members || !data.members.length) && local.length) {
           if (confirm("이 브라우저에 저장된 " + local.length + "명의 자료가 있습니다. 구글 계정으로 옮길까요?")) {
             state.members = local;
+            state.districts = normalizeDistricts(stored.districts);
             writeNow();
             showGate(false);
             render();
@@ -946,6 +1109,7 @@
         }
       }
       state.members = normalize(data ? data.members : []);
+      state.districts = normalizeDistricts(data ? data.districts : []);
       showGate(false);
       render();
     }, function (err) {
