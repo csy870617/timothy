@@ -86,7 +86,12 @@
   header.top h1 { font-size: 22px; margin: 0 0 4px; letter-spacing: -.02em; }
   header.top p { margin: 0; color: var(--muted); font-size: 14px; }
   .head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
-  .head-right select { width: auto; font-size: 13px; padding: 6px 9px; }
+  .theme { display: flex; gap: 2px; background: var(--panel);
+           border: 1px solid var(--line); border-radius: 999px; padding: 2px; }
+  .theme button { border: 0; background: none; border-radius: 999px;
+                  padding: 5px 9px; font-size: 15px; line-height: 1; opacity: .45; }
+  .theme button:hover { opacity: .8; background: var(--bg); }
+  .theme button[aria-pressed="true"] { opacity: 1; background: var(--accent-soft); }
   .account { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 
   .notice {
@@ -214,11 +219,11 @@
       <p>교인 한 사람 한 사람을 기억하고, 기도하고, 연락하기 위한 페이지입니다.</p>
     </div>
     <div class="head-right">
-      <select id="themeSelect" aria-label="화면 색">
-        <option value="auto">시스템 설정</option>
-        <option value="light">밝게</option>
-        <option value="dark">어둡게</option>
-      </select>
+      <div class="theme" id="themeBox" role="group" aria-label="화면 색">
+        <button type="button" data-theme-value="auto" title="시스템 설정">💻</button>
+        <button type="button" data-theme-value="light" title="밝게">☀️</button>
+        <button type="button" data-theme-value="dark" title="어둡게">🌙</button>
+      </div>
       <div class="account" id="account" hidden>
         <button class="ghost" id="signOutBtn">로그아웃</button>
       </div>
@@ -1169,18 +1174,27 @@
     }
   }
 
+  function markTheme(value) {
+    [].forEach.call($("themeBox").children, function (btn) {
+      btn.setAttribute("aria-pressed", String(btn.dataset.themeValue === value));
+    });
+  }
+
   (function initTheme() {
     var saved = "auto";
     try { saved = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* 무시 */ }
     if (saved !== "light" && saved !== "dark") saved = "auto";
-    $("themeSelect").value = saved;
     applyTheme(saved);
+    markTheme(saved);
   })();
 
-  $("themeSelect").addEventListener("change", function () {
-    var value = $("themeSelect").value;
+  $("themeBox").addEventListener("click", function (e) {
+    var btn = e.target.closest("button");
+    if (!btn) return;
+    var value = btn.dataset.themeValue;
     applyTheme(value);
-    try { localStorage.setItem(THEME_KEY, value); } catch (e) { /* 무시 */ }
+    markTheme(value);
+    try { localStorage.setItem(THEME_KEY, value); } catch (e2) { /* 무시 */ }
   });
 
   /* ---------- 구글 로그인 · 클라우드 저장 ---------- */
