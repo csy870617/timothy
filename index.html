@@ -88,7 +88,6 @@
   .head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
   .head-right select { width: auto; font-size: 13px; padding: 6px 9px; }
   .account { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
-  .account .who { max-width: 190px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
   .notice {
     display: flex; gap: 8px; align-items: baseline; flex-wrap: wrap;
@@ -96,27 +95,6 @@
     border-radius: 10px; padding: 8px 12px; font-size: 13px; margin-bottom: 16px;
   }
   .notice a { color: inherit; }
-
-  .chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 0 0 14px; }
-  .chip {
-    display: flex; align-items: baseline; gap: 6px;
-    border: 1px solid var(--line); background: var(--panel);
-    border-radius: 999px; padding: 6px 13px; font-size: 13px; cursor: pointer;
-  }
-  .chip b { font-size: 15px; font-variant-numeric: tabular-nums; }
-  .chip[aria-pressed="true"] { border-color: currentColor; }
-  .chip.all { color: var(--text); }
-  .chip.lv0 { color: var(--lv0); }
-  .chip.lv20 { color: var(--lv20); }
-  .chip.lv40 { color: var(--lv40); }
-  .chip.lv60 { color: var(--lv60); }
-  .chip.none { color: var(--none); }
-  .chip[aria-pressed="true"].lv0 { background: var(--lv0-soft); }
-  .chip[aria-pressed="true"].lv20 { background: var(--lv20-soft); }
-  .chip[aria-pressed="true"].lv40 { background: var(--lv40-soft); }
-  .chip[aria-pressed="true"].lv60 { background: var(--lv60-soft); }
-  .chip[aria-pressed="true"].none { background: var(--none-soft); }
-  .chip[aria-pressed="true"].all { background: var(--accent-soft); color: var(--accent); }
 
   .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
   .toolbar .grow { flex: 1 1 180px; }
@@ -230,7 +208,6 @@
         <option value="dark">어둡게</option>
       </select>
       <div class="account" id="account" hidden>
-        <span class="who" id="accountWho"></span>
         <button class="ghost" id="signOutBtn">로그아웃</button>
       </div>
     </div>
@@ -240,8 +217,6 @@
     <span>구글 로그인이 설정되지 않아 <b>이 브라우저에만</b> 저장됩니다.</span>
     <span class="hint">설정 방법은 README 의 “구글 로그인 · 자료 동기화 설정”을 참고하세요.</span>
   </div>
-
-  <div class="chips" id="chips"></div>
 
   <div class="toolbar">
     <div class="grow"><input type="search" id="q" placeholder="이름 · 직분 · 구역 검색" /></div>
@@ -294,8 +269,6 @@
           <select id="mDistrict"></select>
         </label>
       </div>
-      <label class="field" id="mDistrictNewField" hidden><span>새 구역 이름</span>
-        <input type="text" id="mDistrictNew" placeholder="예) 3구역" /></label>
       <label class="field"><span>연락처 (선택)</span>
         <input type="text" id="mContact" placeholder="예) 010-0000-0000" /></label>
       <label class="field"><span>기도 제목 · 메모 (선택)</span>
@@ -502,7 +475,7 @@
   }
 
   function render() {
-    renderChips();
+    renderLevelSelect();
     renderDistrictOptions();
     renderBoard();
   }
@@ -512,15 +485,6 @@
     LEVELS.forEach(function (l) { counts[l.key] = 0; });
     state.members.forEach(function (m) { counts[memberLevel(m)]++; });
     return counts;
-  }
-
-  function renderChips() {
-    var counts = levelCounts();
-    var box = $("chips");
-    box.innerHTML = "";
-    box.appendChild(chip("all", "전체", state.members.length));
-    LEVELS.forEach(function (l) { box.appendChild(chip(l.key, l.label, counts[l.key])); });
-    renderLevelSelect(counts);
   }
 
   function renderLevelSelect(counts) {
@@ -541,23 +505,6 @@
     sel.value = levelFilter;
   }
 
-  function chip(key, label, count) {
-    var b = document.createElement("button");
-    b.type = "button";
-    b.className = "chip " + (key === "all" ? "all" : key);
-    b.setAttribute("aria-pressed", String(levelFilter === (key === "all" ? "" : key)));
-    var n = document.createElement("b");
-    n.textContent = count;
-    b.appendChild(n);
-    b.appendChild(document.createTextNode(label));
-    b.addEventListener("click", function () {
-      levelFilter = key === "all" ? "" : key;
-      renderChips();
-      renderBoard();
-    });
-    return b;
-  }
-
   function renderDistrictOptions() {
     var list = districts();
     var sel = $("districtFilter");
@@ -572,7 +519,6 @@
   }
 
   /* 성도 창의 구역 펼침 메뉴 — 이미 쓰고 있는 구역 + 새 구역 직접 입력 */
-  var NEW_DISTRICT = "__new__";
   var MANAGE_DISTRICT = "__manage__";
   var lastDistrictValue = "";
 
@@ -592,30 +538,17 @@
       sel.appendChild(o);
     });
 
-    var add = document.createElement("option");
-    add.value = NEW_DISTRICT; add.textContent = "＋ 새 구역 직접 입력…";
-    sel.appendChild(add);
-
     var manage = document.createElement("option");
     manage.value = MANAGE_DISTRICT; manage.textContent = "⚙ 구역 추가 · 삭제…";
     sel.appendChild(manage);
 
-    // 아직 구역이 하나도 없으면 바로 새 구역을 적도록
-    sel.value = current || (list.length ? "" : NEW_DISTRICT);
+    sel.value = current || "";
     lastDistrictValue = sel.value;
-    toggleDistrictInput();
-  }
-
-  function toggleDistrictInput() {
-    var isNew = $("mDistrict").value === NEW_DISTRICT;
-    $("mDistrictNewField").hidden = !isNew;
-    if (!isNew) $("mDistrictNew").value = "";
   }
 
   function selectedDistrict() {
-    return $("mDistrict").value === NEW_DISTRICT
-      ? $("mDistrictNew").value.trim()
-      : $("mDistrict").value;
+    var value = $("mDistrict").value;
+    return value === MANAGE_DISTRICT ? lastDistrictValue : value;
   }
 
   function matches(m, q) {
@@ -779,14 +712,11 @@
   $("mDistrict").addEventListener("change", function () {
     var sel = $("mDistrict");
     if (sel.value === MANAGE_DISTRICT) {
-      sel.value = lastDistrictValue;     // 관리 창을 열고 고르기는 되돌림
-      toggleDistrictInput();
+      sel.value = lastDistrictValue;     // 관리 창을 열고 고른 값은 되돌림
       openDistrictDlg();
       return;
     }
     lastDistrictValue = sel.value;
-    toggleDistrictInput();
-    if (sel.value === NEW_DISTRICT) $("mDistrictNew").focus();
   });
 
   $("memberCancel").addEventListener("click", function () { $("memberDlg").close(); });
@@ -1053,7 +983,6 @@
   $("addBtn").addEventListener("click", function () { openMemberDlg(null); });
   $("levelSelect").addEventListener("change", function () {
     levelFilter = $("levelSelect").value;
-    renderChips();
     renderBoard();
   });
 
@@ -1148,7 +1077,6 @@
           return;
         }
 
-        $("accountWho").textContent = user.email || user.displayName || "로그인됨";
         $("account").hidden = false;
         gateError("");
         connectDoc(fsMod, db, user);
