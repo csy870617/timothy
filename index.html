@@ -24,9 +24,9 @@
     --accent-soft: #efeaf7;
     --accent-text: #ffffff;
     --lv0: #2f7d59;   --lv0-soft: #e4f2ea;
-    --lv20: #8a7318;  --lv20-soft: #f7f0d9;
-    --lv40: #a5631c;  --lv40-soft: #faeadb;
-    --lv60: #a8443a;  --lv60-soft: #fae8e5;
+    --lv30: #8a7318;  --lv30-soft: #f7f0d9;
+    --lv60: #a5631c;  --lv60-soft: #faeadb;
+    --lv90: #a8443a;  --lv90-soft: #fae8e5;
     --none: #6b6259;  --none-soft: #eae6e0;
     --radius: 14px;
     --shadow: 0 1px 2px rgba(0,0,0,.05), 0 8px 24px rgba(0,0,0,.05);
@@ -43,9 +43,9 @@
       --accent-soft: #322b44;
       --accent-text: #1b1917;
       --lv0: #7dc9a3;   --lv0-soft: #23342c;
-      --lv20: #d8c165;  --lv20-soft: #383320;
-      --lv40: #e0a468;  --lv40-soft: #3a2f22;
-      --lv60: #e79187;  --lv60-soft: #3a2724;
+      --lv30: #d8c165;  --lv30-soft: #383320;
+      --lv60: #e0a468;  --lv60-soft: #3a2f22;
+      --lv90: #e79187;  --lv90-soft: #3a2724;
       --none: #b0a89e;  --none-soft: #322e2b;
       --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
     }
@@ -62,9 +62,9 @@
     --accent-soft: #322b44;
     --accent-text: #1b1917;
     --lv0: #7dc9a3;   --lv0-soft: #23342c;
-    --lv20: #d8c165;  --lv20-soft: #383320;
-    --lv40: #e0a468;  --lv40-soft: #3a2f22;
-    --lv60: #e79187;  --lv60-soft: #3a2724;
+    --lv30: #d8c165;  --lv30-soft: #383320;
+    --lv60: #e0a468;  --lv60-soft: #3a2f22;
+    --lv90: #e79187;  --lv90-soft: #3a2724;
     --none: #b0a89e;  --none-soft: #322e2b;
     --shadow: 0 1px 2px rgba(0,0,0,.3), 0 8px 24px rgba(0,0,0,.25);
   }
@@ -116,7 +116,7 @@
   button.primary:hover { filter: brightness(1.08); }
   button.ghost { background: transparent; border-color: transparent; color: var(--muted); padding: 6px 8px; }
   button.ghost:hover { color: var(--text); background: var(--bg); }
-  button.danger:hover { border-color: var(--lv60); color: var(--lv60); }
+  button.danger:hover { border-color: var(--lv90); color: var(--lv90); }
   button.google { display: inline-flex; align-items: center; gap: 8px; }
   button.google svg { width: 18px; height: 18px; }
 
@@ -150,9 +150,9 @@
   .badge { flex: 0 0 auto; font-size: 12px; padding: 3px 9px; border-radius: 999px;
            font-variant-numeric: tabular-nums; white-space: nowrap; }
   .badge.lv0 { background: var(--lv0-soft); color: var(--lv0); }
-  .badge.lv20 { background: var(--lv20-soft); color: var(--lv20); }
-  .badge.lv40 { background: var(--lv40-soft); color: var(--lv40); }
+  .badge.lv30 { background: var(--lv30-soft); color: var(--lv30); }
   .badge.lv60 { background: var(--lv60-soft); color: var(--lv60); }
+  .badge.lv90 { background: var(--lv90-soft); color: var(--lv90); }
   .badge.none { background: var(--none-soft); color: var(--none); }
 
   .empty { text-align: center; color: var(--muted); padding: 44px 16px; font-size: 14px; }
@@ -200,7 +200,7 @@
                 text-align: center; }
   #gate h2 { margin: 0 0 6px; font-size: 19px; }
   #gate p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
-  #gateError { color: var(--lv60); font-size: 13px; margin-top: 14px; min-height: 18px; }
+  #gateError { color: var(--lv90); font-size: 13px; margin-top: 14px; min-height: 18px; }
 
   @media (max-width: 520px) {
     .grid2 { grid-template-columns: 1fr; }
@@ -369,17 +369,17 @@
 
   /* ---------- 심방 간격 구간 (20일 / 40일 / 60일 / 기록 없음) ---------- */
   var LEVELS = [
-    { key: "lv0",  label: "1일~",   min: 0,  max: 20 },
-    { key: "lv20", label: "20일~",  min: 20, max: 40 },
-    { key: "lv40", label: "40일~",  min: 40, max: 60 },
-    { key: "lv60", label: "60일~",  min: 60, max: Infinity },
-    { key: "none", label: "기록없음", min: null, max: null }
+    { key: "lv0",  label: "30일 이내" },
+    { key: "lv30", label: "60일 이내" },
+    { key: "lv60", label: "90일 이내" },
+    { key: "lv90", label: "그 이상" },
+    { key: "none", label: "기록 없음" }
   ];
   function careLevel(days) {
     if (days === null) return "none";
+    if (days >= 90) return "lv90";
     if (days >= 60) return "lv60";
-    if (days >= 40) return "lv40";
-    if (days >= 20) return "lv20";
+    if (days >= 30) return "lv30";
     return "lv0";
   }
 
@@ -514,7 +514,7 @@
     sel.innerHTML = "";
 
     var all = document.createElement("option");
-    all.value = ""; all.textContent = "심방간격 (" + state.members.length + ")";
+    all.value = ""; all.textContent = "심방 (" + state.members.length + ")";
     sel.appendChild(all);
 
     LEVELS.forEach(function (l) {
