@@ -539,7 +539,7 @@
     var careCount = state.members.filter(function (m) { return m.care; }).length;
     var care = document.createElement("option");
     care.value = CARE_FILTER;
-    care.textContent = "♥ 관심 (" + careCount + ")";
+    care.textContent = "관심 (" + careCount + ")";
     sel.appendChild(care);
 
     sel.value = levelFilter;
