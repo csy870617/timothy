@@ -96,8 +96,10 @@
   }
   .notice a { color: inherit; }
 
-  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-bottom: 16px; }
-  .toolbar .grow { flex: 1 1 180px; }
+  .toolbar { display: flex; flex-wrap: nowrap; gap: 8px; align-items: center; margin-bottom: 16px; }
+  .toolbar .grow { flex: 1 1 60px; min-width: 0; }
+  .toolbar select { flex: 0 1 auto; min-width: 0; }
+  .toolbar #addBtn { flex: 0 0 auto; white-space: nowrap; }
 
   input, select, textarea, button { font: inherit; color: inherit; }
   input[type=text], input[type=date], input[type=search], select, textarea {
@@ -201,6 +203,15 @@
   #gate h2 { margin: 0 0 6px; font-size: 19px; }
   #gate p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
   #gateError { color: var(--lv90); font-size: 13px; margin-top: 14px; min-height: 18px; }
+
+  @media (max-width: 560px) {
+    .toolbar { gap: 6px; }
+    .toolbar input[type=search], .toolbar select, .toolbar #addBtn {
+      font-size: 13px; padding-left: 8px; padding-right: 6px;
+    }
+    .toolbar #addBtn { padding: 9px 10px; }
+    .toolbar select { max-width: 108px; }
+  }
 
   @media (max-width: 520px) {
     .grid2 { grid-template-columns: 1fr; }
@@ -361,7 +372,8 @@
   var editingMemberId = null;
   var openMemberId = null;
   var editingVisitId = null;
-  var levelFilter = "";                      // 심방 간격 필터
+  var levelFilter = "";                      // 심방 간격 · 관심 필터
+  var CARE_FILTER = "care";                  // 관심 표시한 분만 보기
   var lastFilterValue = "";                  // 그룹 필터에서 마지막으로 고른 값
   var MANAGE_DISTRICT = "__manage__";        // 두 펼침 메뉴의 "그룹 편집" 항목
 
@@ -523,6 +535,13 @@
       o.textContent = l.label + " (" + counts[l.key] + ")";
       sel.appendChild(o);
     });
+
+    var careCount = state.members.filter(function (m) { return m.care; }).length;
+    var care = document.createElement("option");
+    care.value = CARE_FILTER;
+    care.textContent = "♥ 관심 (" + careCount + ")";
+    sel.appendChild(care);
+
     sel.value = levelFilter;
   }
 
@@ -599,7 +618,11 @@
       if (filter && d !== filter) return;
       var members = state.members.filter(function (m) {
         if (((m.district || "").trim() || "미배정") !== d) return false;
-        if (levelFilter && memberLevel(m) !== levelFilter) return false;
+        if (levelFilter === CARE_FILTER) {
+          if (!m.care) return false;
+        } else if (levelFilter && memberLevel(m) !== levelFilter) {
+          return false;
+        }
         return matches(m, q);
       });
       // 성도가 아직 없는 그룹도, 걸러 보는 중이 아니라면 자리를 보여 준다
