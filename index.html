@@ -1202,11 +1202,10 @@
     }
   }
 
-  // 누를 때마다 시스템 설정 → 밝게 → 어둡게 순으로 돌아간다
+  // 누를 때마다 낮 ↔ 밤이 바뀐다
   var THEMES = [
-    { value: "auto",  emoji: "💻", label: "시스템 설정" },
-    { value: "light", emoji: "☀️", label: "밝게" },
-    { value: "dark",  emoji: "🌙", label: "어둡게" }
+    { value: "light", emoji: "☀️", label: "낮" },
+    { value: "dark",  emoji: "🌙", label: "밤" }
   ];
   var themeIndex = 0;
 
@@ -1218,8 +1217,14 @@
   }
 
   (function initTheme() {
-    var saved = "auto";
-    try { saved = localStorage.getItem(THEME_KEY) || "auto"; } catch (e) { /* 무시 */ }
+    var saved = null;
+    try { saved = localStorage.getItem(THEME_KEY); } catch (e) { /* 무시 */ }
+
+    // 처음 열 때는 쓰시는 기기 설정을 따라 낮·밤 중 하나로 시작한다
+    if (saved !== "light" && saved !== "dark") {
+      saved = (window.matchMedia && window.matchMedia("(prefers-color-scheme: dark)").matches)
+        ? "dark" : "light";
+    }
     themeIndex = 0;
     THEMES.forEach(function (t, i) { if (t.value === saved) themeIndex = i; });
     applyTheme(THEMES[themeIndex].value);
