@@ -372,8 +372,8 @@
   var editingMemberId = null;
   var openMemberId = null;
   var editingVisitId = null;
-  var levelFilter = "";                      // 심방 간격 · 관심 필터
   var CARE_FILTER = "care";                  // 관심 표시한 분만 보기
+  var levelFilter = CARE_FILTER;             // 페이지를 열면 관심 표시한 분부터 본다
   var lastFilterValue = "";                  // 그룹 필터에서 마지막으로 고른 값
   var MANAGE_DISTRICT = "__manage__";        // 두 펼침 메뉴의 "그룹 편집" 항목
 
@@ -525,8 +525,14 @@
     var sel = $("levelSelect");
     sel.innerHTML = "";
 
+    var careCount = state.members.filter(function (m) { return m.care; }).length;
+    var care = document.createElement("option");
+    care.value = CARE_FILTER;
+    care.textContent = "관심 (" + careCount + ")";
+    sel.appendChild(care);
+
     var all = document.createElement("option");
-    all.value = ""; all.textContent = "심방 (" + state.members.length + ")";
+    all.value = ""; all.textContent = "전체 (" + state.members.length + ")";
     sel.appendChild(all);
 
     LEVELS.forEach(function (l) {
@@ -535,12 +541,6 @@
       o.textContent = l.label + " (" + counts[l.key] + ")";
       sel.appendChild(o);
     });
-
-    var careCount = state.members.filter(function (m) { return m.care; }).length;
-    var care = document.createElement("option");
-    care.value = CARE_FILTER;
-    care.textContent = "관심 (" + careCount + ")";
-    sel.appendChild(care);
 
     sel.value = levelFilter;
   }
@@ -783,6 +783,8 @@
       data.care = false;          // 관심 표시는 명단의 하트로 켠다
       data.visits = [];
       state.members.push(data);
+      // 관심만 보는 중이면 방금 등록한 분이 안 보이므로 전체로 되돌린다
+      if (levelFilter === CARE_FILTER) levelFilter = "";
     }
     save();
     render();
