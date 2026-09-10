@@ -87,6 +87,14 @@
   header.top p { margin: 0; color: var(--muted); font-size: 14px; }
   .head-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
   .theme { border-radius: 999px; padding: 6px 10px; font-size: 16px; line-height: 1; }
+  #trashBtn { display: flex; align-items: center; gap: 4px; }
+  #trashBtn .n { font-size: 12px; font-weight: 600; color: var(--accent); }
+  .trow { display: flex; align-items: center; gap: 10px;
+          padding: 10px 14px; border-top: 1px solid var(--line); }
+  .trow:first-child { border-top: 0; }
+  .trow .tinfo { flex: 1 1 auto; min-width: 0; }
+  .trow .tname { font-weight: 600; }
+  .trow .tmeta { font-size: 12px; color: var(--muted); }
   .account { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
 
   .notice {
@@ -227,6 +235,7 @@
       <p>교인 한 사람 한 사람을 기억하고, 기도하고, 연락하기 위한 페이지입니다.</p>
     </div>
     <div class="head-right">
+      <button type="button" id="trashBtn" class="theme" aria-label="삭제 폴더">🗑</button>
       <button type="button" id="themeBtn" class="theme" aria-label="화면 색">💻</button>
       <div class="account" id="account" hidden>
         <button class="ghost" id="signOutBtn">로그아웃</button>
@@ -317,6 +326,19 @@
   <div class="dlg-foot"><button id="districtDlgClose">닫기</button></div>
 </dialog>
 
+<!-- 삭제 폴더 -->
+<dialog id="trashDlg">
+  <div class="dlg-head"><h3>삭제 폴더</h3></div>
+  <div class="dlg-body">
+    <p class="hint">되돌리면 심방 기록까지 그대로 살아납니다.</p>
+    <div id="trashList"></div>
+  </div>
+  <div class="dlg-foot">
+    <button class="danger left" id="trashEmpty">모두 완전 삭제</button>
+    <button id="trashClose">닫기</button>
+  </div>
+</dialog>
+
 <!-- 성도 상세 · 심방 기록 -->
 <dialog id="detailDlg">
   <div class="dlg-head">
@@ -366,7 +388,7 @@
   var CFG = window.CHURCH_CONFIG || {};
   var useCloud = !!(CFG.firebase && CFG.firebase.apiKey && CFG.firebase.projectId);
 
-  var state = { members: [], districts: [] };
+  var state = { members: [], districts: [], trash: [] };
   var mode = useCloud ? "cloud" : "local";   // 자료를 어디에 저장하는지
   var cloud = null;                          // { db, docRef, save, ... }
   var editingMemberId = null;
@@ -402,16 +424,16 @@
       if (raw) {
         var parsed = JSON.parse(raw);
         if (parsed && Array.isArray(parsed.members)) {
-          return { members: parsed.members, districts: parsed.districts };
+          return { members: parsed.members, districts: parsed.districts, trash: parsed.trash };
         }
       }
     } catch (e) { /* 손상된 자료는 무시하고 새로 시작 */ }
-    return { members: [], districts: [] };
+    return { members: [], districts: [], trash: [] };
   }
   function saveLocal() {
     try {
       localStorage.setItem(LOCAL_KEY,
-        JSON.stringify({ members: state.members, districts: state.districts }));
+        JSON.stringify({ members: state.members, districts: state.districts, trash: state.trash }));
     } catch (e) {
       alert("저장에 실패했습니다. 브라우저 저장 공간을 확인해 주세요.");
     }
@@ -437,6 +459,15 @@
           return { id: v.id || uid(), date: v.date || "", kind: v.kind || "", note: v.note || "" };
         })
       };
+    });
+  }
+
+  // 삭제 폴더의 항목은 성도 자료에 삭제 시각만 덧붙인 형태
+  function normalizeTrash(list) {
+    return (Array.isArray(list) ? list : []).map(function (t) {
+      var m = normalize([t])[0];
+      m.deletedAt = String(t.deletedAt || "");
+      return m;
     });
   }
 
@@ -508,6 +539,7 @@
   }
 
   function render() {
+    renderTrashButton();
     renderLevelSelect();
     renderDistrictOptions();
     renderBoard();
@@ -807,12 +839,122 @@
   $("memberDelete").addEventListener("click", function () {
     var m = findMember(editingMemberId);
     if (!m) return;
-    if (!confirm(m.name + " 님의 정보와 심방 기록을 모두 삭제할까요?")) return;
+    if (!confirm("‘" + m.name + "’ 님을 삭제 폴더로 보낼까요?\n나중에 삭제 폴더에서 되돌릴 수 있습니다.")) return;
+
     state.members = state.members.filter(function (x) { return x.id !== m.id; });
+    m.deletedAt = new Date().toISOString();
+    if (!state.trash) state.trash = [];
+    state.trash.unshift(m);                 // 최근에 지운 분이 위로
+
     save();
     $("memberDlg").close();
     if (openMemberId === m.id) { $("detailDlg").close(); openMemberId = null; }
     render();
+  });
+
+  /* ---------- 삭제 폴더 ---------- */
+  function renderTrashButton() {
+    var n = (state.trash || []).length;
+    var btn = $("trashBtn");
+    btn.innerHTML = "🗑";
+    if (n) {
+      var tag = document.createElement("span");
+      tag.className = "n";
+      tag.textContent = n;
+      btn.appendChild(tag);
+    }
+    btn.title = n ? "삭제 폴더 — " + n + "명" : "삭제 폴더 (비어 있음)";
+  }
+
+  function openTrashDlg() {
+    renderTrashList();
+    $("trashDlg").showModal();
+  }
+
+  function renderTrashList() {
+    var list = state.trash || [];
+    var box = $("trashList");
+    box.innerHTML = "";
+
+    if (!list.length) {
+      var empty = document.createElement("p");
+      empty.className = "hint";
+      empty.textContent = "삭제 폴더가 비어 있습니다.";
+      box.appendChild(empty);
+      return;
+    }
+
+    var wrap = document.createElement("div");
+    wrap.className = "list";
+    list.forEach(function (m) {
+      var row = document.createElement("div");
+      row.className = "trow";
+
+      var info = document.createElement("div");
+      info.className = "tinfo";
+
+      var name = document.createElement("div");
+      name.className = "tname";
+      name.textContent = m.name + (m.role ? " " + m.role : "");
+      info.appendChild(name);
+
+      var meta = document.createElement("div");
+      meta.className = "tmeta";
+      var bits = [(m.district || "미배정")];
+      if (m.visits && m.visits.length) bits.push("심방 " + m.visits.length + "회");
+      if (m.deletedAt) bits.push(formatDate(m.deletedAt.slice(0, 10)) + " 삭제");
+      meta.textContent = bits.join(" · ");
+      info.appendChild(meta);
+      row.appendChild(info);
+
+      var restore = document.createElement("button");
+      restore.type = "button"; restore.className = "ghost"; restore.textContent = "되돌리기";
+      restore.addEventListener("click", function () { restoreMember(m.id); });
+      row.appendChild(restore);
+
+      var purge = document.createElement("button");
+      purge.type = "button"; purge.className = "ghost"; purge.textContent = "완전 삭제";
+      purge.addEventListener("click", function () { purgeMember(m.id); });
+      row.appendChild(purge);
+
+      wrap.appendChild(row);
+    });
+    box.appendChild(wrap);
+  }
+
+  function restoreMember(id) {
+    var m = (state.trash || []).filter(function (x) { return x.id === id; })[0];
+    if (!m) return;
+    state.trash = state.trash.filter(function (x) { return x.id !== id; });
+    delete m.deletedAt;
+    state.members.push(m);
+    syncDistricts();               // 그 사이 그룹이 지워졌다면 목록에 되살린다
+    save();
+    render();
+    renderTrashList();
+  }
+
+  function purgeMember(id) {
+    var m = (state.trash || []).filter(function (x) { return x.id === id; })[0];
+    if (!m) return;
+    if (!confirm("‘" + m.name + "’ 님의 자료를 완전히 지웁니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?")) return;
+    state.trash = state.trash.filter(function (x) { return x.id !== id; });
+    save();
+    render();
+    renderTrashList();
+  }
+
+  $("trashBtn").addEventListener("click", openTrashDlg);
+  $("trashClose").addEventListener("click", function () { $("trashDlg").close(); });
+
+  $("trashEmpty").addEventListener("click", function () {
+    var n = (state.trash || []).length;
+    if (!n) { $("trashDlg").close(); return; }
+    if (!confirm("삭제 폴더의 " + n + "명을 완전히 지웁니다.\n이 작업은 되돌릴 수 없습니다. 계속할까요?")) return;
+    state.trash = [];
+    save();
+    render();
+    renderTrashList();
   });
 
   /* ---------- 그룹 편집 ---------- */
@@ -1248,7 +1390,11 @@
   function startLocalMode() {
     mode = "local";
     var stored = loadLocal();
-    state = { members: normalize(stored.members), districts: normalizeDistricts(stored.districts) };
+    state = {
+      members: normalize(stored.members),
+      districts: normalizeDistricts(stored.districts),
+      trash: normalizeTrash(stored.trash)
+    };
     syncDistricts();
     $("localNotice").hidden = false;
     showGate(false);
@@ -1289,7 +1435,7 @@
         if (cloud && cloud.unsub) { cloud.unsub(); cloud = null; }
 
         if (!user) {
-          state = { members: [], districts: [] };
+          state = { members: [], districts: [], trash: [] };
           $("account").hidden = true;
           render();
           showGate(true);
@@ -1324,6 +1470,7 @@
       fsMod.setDoc(ref, {
         members: state.members,
         districts: state.districts,
+        trash: state.trash,
         updatedAt: new Date().toISOString(),
         updatedBy: user.email || user.uid
       }).catch(function (err) {
@@ -1351,6 +1498,7 @@
           if (confirm("이 브라우저에 저장된 " + local.length + "명의 자료가 있습니다. 구글 계정으로 옮길까요?")) {
             state.members = local;
             state.districts = normalizeDistricts(stored.districts);
+            state.trash = normalizeTrash(stored.trash);
             syncDistricts();
             writeNow();
             showGate(false);
@@ -1361,6 +1509,7 @@
       }
       state.members = normalize(data ? data.members : []);
       state.districts = normalizeDistricts(data ? data.districts : []);
+      state.trash = normalizeTrash(data ? data.trash : []);
       syncDistricts();
       showGate(false);
       render();
