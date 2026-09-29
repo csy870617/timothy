@@ -140,7 +140,8 @@
   .row { display: flex; align-items: center; gap: 8px;
          border-top: 1px solid var(--line); padding-right: 10px; }
   .row-main { flex: 1 1 auto; min-width: 0; display: block; text-align: left;
-              background: none; border: 0; border-radius: 0; padding: 12px 14px; }
+              background: none; border: 0; border-radius: 0; padding: 12px 14px;
+              user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
   .row-main:hover { border-color: transparent; }
   .care-btn { flex: 0 0 auto; border: 0; background: none; border-radius: 999px;
               padding: 4px 7px; font-size: 17px; line-height: 1;
@@ -164,6 +165,13 @@
   .badge.lv60 { background: var(--lv60-soft); color: var(--lv60); }
   .badge.lv90 { background: var(--lv90-soft); color: var(--lv90); }
   .badge.none { background: var(--none-soft); color: var(--none); }
+
+  .menu { position: fixed; z-index: 60; background: var(--panel); border: 1px solid var(--line);
+          border-radius: 12px; box-shadow: var(--shadow); padding: 4px; min-width: 132px; }
+  .menu button { display: block; width: 100%; text-align: left; border: 0; background: none;
+                 border-radius: 8px; padding: 9px 12px; font-size: 14px; }
+  .menu button:hover { background: var(--bg); border-color: transparent; }
+  .menu button.danger:hover { color: var(--lv90); }
 
   .empty { text-align: center; color: var(--muted); padding: 44px 16px; font-size: 14px; }
 
@@ -218,7 +226,8 @@
       font-size: 13px; padding-left: 8px; padding-right: 6px;
     }
     .toolbar #addBtn { padding: 9px 10px; }
-    .toolbar select { max-width: 108px; }
+    .toolbar select { max-width: 96px; }
+    .toolbar .grow { flex: 1 1 74px; }
   }
 
   @media (max-width: 520px) {
@@ -325,6 +334,12 @@
   </div>
   <div class="dlg-foot"><button id="districtDlgClose">닫기</button></div>
 </dialog>
+
+<!-- 명단에서 우클릭 · 긴 터치로 열리는 메뉴 -->
+<div class="menu" id="rowMenu" hidden>
+  <button type="button" data-act="edit">정보 수정</button>
+  <button type="button" data-act="delete" class="danger">삭제</button>
+</div>
 
 <!-- 삭제 폴더 -->
 <dialog id="trashDlg">
@@ -712,7 +727,57 @@
     var main = document.createElement("button");
     main.type = "button";
     main.className = "row-main";
-    main.addEventListener("click", function () { openDetail(m.id); });
+    // 우클릭 · 긴 터치로 정보 수정 · 삭제
+    var press = null;
+
+    main.addEventListener("contextmenu", function (e) {
+      e.preventDefault();
+      var x = e.clientX, y = e.clientY;
+      if (!x && !y) {                       // 휴대폰 긴 터치는 좌표가 없을 수 있다
+        var r = main.getBoundingClientRect();
+        x = r.left + 24;
+        y = r.bottom - 6;
+      }
+      openRowMenu(m.id, x, y);
+    });
+
+    main.addEventListener("pointerdown", function (e) {
+      if (e.pointerType !== "touch") return;
+      var x = e.clientX, y = e.clientY;
+      press = {
+        x: x, y: y, fired: false,
+        timer: setTimeout(function () {
+          if (!press) return;
+          press.fired = true;
+          if ($("rowMenu").hidden) openRowMenu(m.id, x, y);   // 이미 열렸으면 그대로
+        }, LONG_PRESS_MS + 150)
+      };
+    });
+
+    main.addEventListener("pointermove", function (e) {
+      if (!press || press.fired) return;
+      if (Math.abs(e.clientY - press.y) > 10 || Math.abs(e.clientX - press.x) > 10) {
+        clearTimeout(press.timer);          // 목록을 넘기려는 손짓
+        press = null;
+      }
+    });
+
+    main.addEventListener("pointercancel", function () {
+      if (press && !press.fired) { clearTimeout(press.timer); press = null; }
+    });
+
+    main.addEventListener("click", function (e) {
+      var wasLongPress = !!(press && press.fired);
+      if (press) { clearTimeout(press.timer); press = null; }
+
+      // 메뉴가 떠 있는 동안의 클릭은 상세를 열지 않고, 메뉴도 닫지 않는다
+      if (wasLongPress || !$("rowMenu").hidden) {
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      openDetail(m.id);
+    });
 
     var who = document.createElement("div");
     who.className = "who";
@@ -764,6 +829,44 @@
 
     return row;
   }
+
+  var rowMenuId = null;
+
+  function openRowMenu(id, x, y) {
+    rowMenuId = id;
+    var menu = $("rowMenu");
+    menu.hidden = false;
+    var box = menu.getBoundingClientRect();
+    var left = Math.min(x, window.innerWidth - box.width - 8);
+    var top = Math.min(y, window.innerHeight - box.height - 8);
+    menu.style.left = Math.max(8, left) + "px";
+    menu.style.top = Math.max(8, top) + "px";
+  }
+
+  function closeRowMenu() {
+    $("rowMenu").hidden = true;
+    rowMenuId = null;
+  }
+
+  $("rowMenu").addEventListener("click", function (e) {
+    var btn = e.target.closest("button");
+    if (!btn) return;
+    var id = rowMenuId;
+    var act = btn.dataset.act;
+    closeRowMenu();
+    if (!id) return;
+    if (act === "edit") openMemberDlg(id);
+    else if (act === "delete") deleteMemberToTrash(id);
+  });
+
+  document.addEventListener("click", function (e) {
+    if (!$("rowMenu").hidden && !e.target.closest("#rowMenu")) closeRowMenu();
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape") closeRowMenu();
+  });
+  window.addEventListener("scroll", closeRowMenu, true);
+  window.addEventListener("resize", closeRowMenu);
 
   function toggleCare(id) {
     var m = findMember(id);
@@ -836,8 +939,8 @@
 
   $("memberCancel").addEventListener("click", function () { $("memberDlg").close(); });
 
-  $("memberDelete").addEventListener("click", function () {
-    var m = findMember(editingMemberId);
+  function deleteMemberToTrash(id) {
+    var m = findMember(id);
     if (!m) return;
     if (!confirm("‘" + m.name + "’ 님을 삭제 폴더로 보낼까요?\n나중에 삭제 폴더에서 되돌릴 수 있습니다.")) return;
 
@@ -847,9 +950,13 @@
     state.trash.unshift(m);                 // 최근에 지운 분이 위로
 
     save();
-    $("memberDlg").close();
+    if ($("memberDlg").open) $("memberDlg").close();
     if (openMemberId === m.id) { $("detailDlg").close(); openMemberId = null; }
     render();
+  }
+
+  $("memberDelete").addEventListener("click", function () {
+    deleteMemberToTrash(editingMemberId);
   });
 
   /* ---------- 삭제 폴더 ---------- */
@@ -1311,6 +1418,14 @@
     editingVisitId = null;
     resetVisitForm();
   });
+
+  // 창 바깥(어두운 배경)을 누르면 닫는다 — 입력 중인 성도 창은 제외
+  function closeOnBackdrop(dlg) {
+    dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+  }
+  closeOnBackdrop($("detailDlg"));
+  closeOnBackdrop($("districtDlg"));
+  closeOnBackdrop($("trashDlg"));
 
   $("detailEdit").addEventListener("click", function () { openMemberDlg(openMemberId); });
   $("detailClose").addEventListener("click", function () { $("detailDlg").close(); });
