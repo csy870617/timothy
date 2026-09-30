@@ -245,7 +245,7 @@
     </div>
     <div class="head-right">
       <button type="button" id="trashBtn" class="theme" aria-label="삭제 폴더">🗑</button>
-      <button type="button" id="themeBtn" class="theme" aria-label="화면 색">💻</button>
+      <button type="button" id="themeBtn" class="theme" aria-label="화면 색">☀️</button>
       <div class="account" id="account" hidden>
         <button class="ghost" id="signOutBtn">로그아웃</button>
       </div>
@@ -411,7 +411,7 @@
 
   var $ = function (id) { return document.getElementById(id); };
 
-  /* ---------- 심방 간격 구간 (20일 / 40일 / 60일 / 기록 없음) ---------- */
+  /* ---------- 심방 간격 구간 (30일 / 60일 / 90일 / 그 이상 / 기록 없음) ---------- */
   var LEVELS = [
     { key: "lv0",  label: "30일 이내" },
     { key: "lv30", label: "60일 이내" },
@@ -449,8 +449,11 @@
     }
   }
   function save() {
-    if (mode === "cloud" && cloud) cloud.save();
-    else saveLocal();
+    if (mode === "cloud") {                 // 클라우드 모드에서는 로컬에 쓰지 않는다
+      if (cloud) cloud.save();
+      return;
+    }
+    saveLocal();
   }
   function uid() {
     return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -461,7 +464,7 @@
         id: m.id || uid(),
         name: String(m.name || "").trim(),
         role: String(m.role || "").trim(),
-        district: String(m.district || "").trim(),
+        district: normalizeDistrictName(m.district),
         contact: String(m.contact || "").trim(),
         memo: String(m.memo || "").trim(),
         care: !!m.care,
@@ -470,6 +473,12 @@
         })
       };
     });
+  }
+
+  // 이전 버전에서 '미배정'이 그룹 이름으로 저장된 경우를 바로잡는다
+  function normalizeDistrictName(d) {
+    var name = String(d || "").trim();
+    return name === "미배정" ? "" : name;
   }
 
   // 삭제 폴더의 항목은 성도 자료에 삭제 시각만 덧붙인 형태
@@ -504,6 +513,13 @@
     if (isNaN(a)) return null;
     return Math.round((b - a) / 86400000);
   }
+  // ISO 시각을 이 기기의 날짜(YYYY.MM.DD)로
+  function localDate(iso) {
+    var d = new Date(iso);
+    if (isNaN(d)) return "";
+    return d.getFullYear() + "." + String(d.getMonth() + 1).padStart(2, "0") + "." +
+           String(d.getDate()).padStart(2, "0");
+  }
   function formatDate(dateStr) {
     var p = (dateStr || "").split("-");
     return p.length === 3 ? p[0] + "." + p[1] + "." + p[2] : dateStr;
@@ -520,6 +536,7 @@
   }
   function badgeText(days) {
     if (days === null) return "기록 없음";
+    if (days < 0) return (-days) + "일 후";
     if (days === 0) return "오늘";
     if (days === 1) return "어제";
     return days + "일 전";
@@ -533,7 +550,7 @@
 
     var extra = [];
     state.members.forEach(function (m) {
-      var d = (m.district || "").trim();
+      var d = normalizeDistrictName(m.district);
       if (d && !known[d]) { known[d] = true; extra.push(d); }
     });
     extra.sort(function (a, b) { return a.localeCompare(b, "ko"); });
@@ -733,6 +750,7 @@
         x = r.left + 24;
         y = r.bottom - 6;
       }
+      if (press) press.fired = true;        // 뒤따르는 클릭이 메뉴를 닫지 않도록
       openRowMenu(m.id, x, y);
     });
 
@@ -765,9 +783,15 @@
       var wasLongPress = !!(press && press.fired);
       if (press) { clearTimeout(press.timer); press = null; }
 
-      // 메뉴가 떠 있는 동안의 클릭은 상세를 열지 않고, 메뉴도 닫지 않는다
-      if (wasLongPress || !$("rowMenu").hidden) {
+      // 긴 터치로 메뉴를 띄운 직후의 클릭은 무시한다
+      if (wasLongPress) {
         e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+      // 메뉴가 떠 있을 때 다른 곳을 누르면 메뉴만 닫는다
+      if (!$("rowMenu").hidden) {
+        closeRowMenu();
         e.stopPropagation();
         return;
       }
@@ -886,7 +910,9 @@
     $("memberDlgTitle").textContent = m ? "성도 정보 수정" : "성도 추가";
     $("mName").value = m ? m.name : "";
     $("mRole").value = m ? (m.role || "") : "";
-    fillDistrictSelect(m ? (m.district || "") : ($("districtFilter").value || ""));
+    var preset = $("districtFilter").value;
+    if (preset === "미배정") preset = "";      // '미배정'은 그룹 이름이 아니다
+    fillDistrictSelect(m ? (m.district || "") : preset);
     $("mContact").value = m ? (m.contact || "") : "";
     $("mMemo").value = m ? (m.memo || "") : "";
     $("memberDelete").hidden = !m;
@@ -913,8 +939,8 @@
       data.care = false;          // 관심 표시는 명단의 하트로 켠다
       data.visits = [];
       state.members.push(data);
-      // 관심만 보는 중이면 방금 등록한 분이 안 보이므로 전체로 되돌린다
-      if (levelFilter === CARE_FILTER) levelFilter = "";
+      // 새로 등록한 분은 관심·심방 기록이 없으므로, 걸러 보는 중이면 전체로 되돌린다
+      if (levelFilter && levelFilter !== "none") levelFilter = "";
     }
     save();
     render();
@@ -1004,7 +1030,7 @@
       meta.className = "tmeta";
       var bits = [(m.district || "미배정")];
       if (m.visits && m.visits.length) bits.push("심방 " + m.visits.length + "회");
-      if (m.deletedAt) bits.push(formatDate(m.deletedAt.slice(0, 10)) + " 삭제");
+      if (m.deletedAt) bits.push(localDate(m.deletedAt) + " 삭제");
       meta.textContent = bits.join(" · ");
       info.appendChild(meta);
       row.appendChild(info);
@@ -1399,9 +1425,12 @@
     if (!m) return;
     if (!confirm("이 심방 기록을 삭제할까요?")) return;
     m.visits = (m.visits || []).filter(function (x) { return x.id !== visitId; });
-    if (editingVisitId === visitId) editingVisitId = null;
+    // 지금 고치던 기록을 지운 경우에만 입력칸을 비운다 (다른 기록 삭제는 입력 중인 내용을 건드리지 않음)
+    if (editingVisitId === visitId) {
+      editingVisitId = null;
+      resetVisitForm();
+    }
     save();
-    resetVisitForm();
     renderDetail();
     render();
   }
@@ -1434,8 +1463,14 @@
   });
 
   // 창 바깥(어두운 배경)을 누르면 닫는다 — 입력 중인 성도 창은 제외
+  // (창 안에서 누르기 시작해 밖에서 뗀 경우는 닫지 않는다 — 글자 선택 중 실수 방지)
   function closeOnBackdrop(dlg) {
-    dlg.addEventListener("click", function (e) { if (e.target === dlg) dlg.close(); });
+    var downOnBackdrop = false;
+    dlg.addEventListener("pointerdown", function (e) { downOnBackdrop = e.target === dlg; });
+    dlg.addEventListener("click", function (e) {
+      if (e.target === dlg && downOnBackdrop) dlg.close();
+      downOnBackdrop = false;
+    });
   }
   closeOnBackdrop($("detailDlg"));
   closeOnBackdrop($("districtDlg"));
@@ -1532,6 +1567,10 @@
 
   function startCloudMode() {
     showGate(true);
+    if (/KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps/i.test(navigator.userAgent)) {
+      gateError("앱 안의 브라우저에서는 구글 로그인이 되지 않습니다. " +
+                "화면 메뉴의 ‘다른 브라우저로 열기’로 Chrome이나 Safari에서 열어 주세요.");
+    }
     var V = CFG.firebaseVersion || "11.6.0";
     var base = "https://www.gstatic.com/firebasejs/" + V + "/";
 
@@ -1549,19 +1588,31 @@
       $("signInBtn").addEventListener("click", function () {
         gateError("");
         authMod.signInWithPopup(auth, provider).catch(function (err) {
-          if (err && /popup/.test(err.code || "")) {
+          // 팝업이 막힌 경우에만 리디렉션으로 (사용자가 닫은 경우는 그대로 둠)
+          var code = (err && err.code) || "";
+          if (code === "auth/popup-blocked" ||
+              code === "auth/operation-not-supported-in-this-environment") {
             authMod.signInWithRedirect(auth, provider);
           } else {
             gateError(authMessage(err));
           }
         });
       });
-      $("signOutBtn").addEventListener("click", function () { authMod.signOut(auth); });
+      $("signOutBtn").addEventListener("click", function () {
+        // 저장 대기 중인 변경을 먼저 보낸 뒤 로그아웃
+        var pending = cloud ? cloud.flush() : Promise.resolve();
+        pending.then(function () { return authMod.signOut(auth); },
+                     function () { return authMod.signOut(auth); });
+      });
 
       authMod.getRedirectResult(auth).catch(function (err) { gateError(authMessage(err)); });
 
       authMod.onAuthStateChanged(auth, function (user) {
-        if (cloud && cloud.unsub) { cloud.unsub(); cloud = null; }
+        if (cloud) {                          // 이전 계정의 대기 중 저장·구독 정리
+          cloud.cancel();
+          if (cloud.unsub) cloud.unsub();
+          cloud = null;
+        }
 
         if (!user) {
           state = { members: [], districts: [], trash: [] };
@@ -1596,7 +1647,7 @@
     var firstLoad = true;
 
     var writeNow = function () {
-      fsMod.setDoc(ref, {
+      return fsMod.setDoc(ref, {
         members: state.members,
         districts: state.districts,
         trash: state.trash,
@@ -1610,13 +1661,24 @@
     cloud = {
       save: function () {
         if (timer) clearTimeout(timer);
-        timer = setTimeout(writeNow, 400);
+        timer = setTimeout(function () { timer = null; writeNow(); }, 400);
+      },
+      // 대기 중인 저장을 바로 보낸다
+      flush: function () {
+        if (!timer) return Promise.resolve();
+        clearTimeout(timer);
+        timer = null;
+        return writeNow();
+      },
+      cancel: function () {
+        if (timer) { clearTimeout(timer); timer = null; }
       },
       unsub: null
     };
 
     cloud.unsub = fsMod.onSnapshot(ref, function (snap) {
       if (snap.metadata.hasPendingWrites) return;   // 내가 방금 쓴 내용
+      if (timer) return;                            // 곧 보낼 내 변경이 있으면 그쪽이 최신
       var data = snap.exists() ? snap.data() : null;
 
       if (firstLoad) {
@@ -1642,11 +1704,18 @@
       syncDistricts();
       showGate(false);
       render();
+      if (openMemberId) renderDetail();             // 열려 있는 상세 창도 새 자료로
     }, function (err) {
       gateError("자료를 불러오지 못했습니다: " + (err && err.message ? err.message : err));
       showGate(true);
     });
   }
+
+  // 다른 앱으로 넘어가거나 창을 닫을 때 대기 중인 저장을 바로 보낸다
+  document.addEventListener("visibilitychange", function () {
+    if (document.visibilityState === "hidden" && cloud) cloud.flush();
+  });
+  window.addEventListener("pagehide", function () { if (cloud) cloud.flush(); });
 
   function authMessage(err) {
     if (!err) return "";
