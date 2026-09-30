@@ -370,12 +370,7 @@
         <label class="field"><span>심방 날짜</span>
           <input type="date" id="vDate" required /></label>
         <label class="field"><span>구분 (선택)</span>
-          <input type="text" id="vKind" list="kindList" placeholder="예) 가정" />
-          <datalist id="kindList">
-            <option value="전화"></option><option value="문자"></option>
-            <option value="교회"></option><option value="가정"></option>
-            <option value="병원"></option>
-          </datalist>
+          <select id="vKind"></select>
         </label>
       </div>
       <label class="field"><span>심방 내용 (선택)</span>
@@ -1275,9 +1270,28 @@
     $("detailDlg").showModal();
   }
 
+  var VISIT_KINDS = ["전화", "문자", "교회", "가정", "병원"];
+
+  function fillKindSelect(current) {
+    var sel = $("vKind");
+    sel.innerHTML = "";
+    var blank = document.createElement("option");
+    blank.value = ""; blank.textContent = "선택 안 함";
+    sel.appendChild(blank);
+
+    var kinds = VISIT_KINDS.slice();
+    if (current && kinds.indexOf(current) < 0) kinds.push(current);
+    kinds.forEach(function (k) {
+      var o = document.createElement("option");
+      o.value = k; o.textContent = k;
+      sel.appendChild(o);
+    });
+    sel.value = current || "";
+  }
+
   function resetVisitForm() {
     $("vDate").value = today();
-    $("vKind").value = "";
+    fillKindSelect("");
     $("vNote").value = "";
     $("visitSubmit").textContent = editingVisitId ? "심방 기록 저장" : "심방 기록 추가";
     $("visitCancelEdit").hidden = !editingVisitId;
@@ -1373,7 +1387,7 @@
     if (!v) return;
     editingVisitId = visitId;
     $("vDate").value = v.date;
-    $("vKind").value = v.kind || "";
+    fillKindSelect(v.kind || "");
     $("vNote").value = v.note || "";
     $("visitSubmit").textContent = "심방 기록 저장";
     $("visitCancelEdit").hidden = false;
@@ -1403,10 +1417,10 @@
 
     if (editingVisitId) {
       var v = m.visits.filter(function (x) { return x.id === editingVisitId; })[0];
-      if (v) { v.date = date; v.kind = $("vKind").value.trim(); v.note = note; }
+      if (v) { v.date = date; v.kind = $("vKind").value; v.note = note; }
       editingVisitId = null;
     } else {
-      m.visits.push({ id: uid(), date: date, kind: $("vKind").value.trim(), note: note });
+      m.visits.push({ id: uid(), date: date, kind: $("vKind").value, note: note });
     }
     save();
     resetVisitForm();
