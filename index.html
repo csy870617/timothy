@@ -5,6 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>교인 심방 관리</title>
 <script>
+  // 아이폰·아이패드는 16px 보다 작은 글자 칸을 누르면 화면을 저절로 확대한다.
+  // maximum-scale=1 로 그 자동 확대만 막는다 (iOS 는 손가락으로 확대하는 것은 계속 허용한다).
+  if (/iPad|iPhone|iPod/.test(navigator.userAgent) ||
+      (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1)) {
+    document.querySelector('meta[name="viewport"]')
+      .setAttribute("content", "width=device-width, initial-scale=1, maximum-scale=1");
+  }
+
   // 저장해 둔 화면 색을 CSS 보다 먼저 적용해, 열 때 색이 번쩍이지 않게 한다
   try {
     var savedTheme = localStorage.getItem("church-care-theme");
@@ -15,6 +23,7 @@
 </script>
 <style>
   :root {
+    color-scheme: light;
     --bg: #f6f4ef;
     --panel: #ffffff;
     --line: #e3ded4;
@@ -34,6 +43,7 @@
   /* 시스템 설정을 따를 때 (밝게를 직접 고른 경우는 제외) */
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+      color-scheme: dark;
       --bg: #1b1917;
       --panel: #242120;
       --line: #38332f;
@@ -53,6 +63,7 @@
 
   /* 어둡게를 직접 고른 경우 */
   :root[data-theme="dark"] {
+    color-scheme: dark;
     --bg: #1b1917;
     --panel: #242120;
     --line: #38332f;
@@ -218,6 +229,7 @@
                 text-align: center; }
   #gate h2 { margin: 0 0 6px; font-size: 19px; }
   #gate p { margin: 0 0 18px; color: var(--muted); font-size: 14px; }
+  #gateStatus { color: var(--muted); font-size: 13px; margin-top: 4px; }
   #gateError { color: var(--lv90); font-size: 13px; margin-top: 14px; min-height: 18px; }
 
   @media (max-width: 560px) {
@@ -281,6 +293,7 @@
       </svg>
       구글로 로그인
     </button>
+    <div id="gateStatus"></div>
     <div id="gateError"></div>
   </div>
 </div>
@@ -524,11 +537,18 @@
     var p = (dateStr || "").split("-");
     return p.length === 3 ? p[0] + "." + p[1] + "." + p[2] : dateStr;
   }
+  // 최근 심방이 위로. 같은 날이면 나중에 적은 기록이 위로.
+  function visitsNewestFirst(visits) {
+    return (visits || []).map(function (v, i) { return { v: v, i: i }; })
+      .sort(function (a, b) {
+        if (a.v.date !== b.v.date) return a.v.date < b.v.date ? 1 : -1;
+        return b.i - a.i;
+      })
+      .map(function (x) { return x.v; });
+  }
   function lastVisit(m) {
     if (!m.visits || !m.visits.length) return null;
-    return m.visits.slice().sort(function (a, b) {
-      return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
-    })[0];
+    return visitsNewestFirst(m.visits)[0];
   }
   function memberLevel(m) {
     var lv = lastVisit(m);
@@ -1353,9 +1373,7 @@
       memoBox.appendChild(p);
     }
 
-    var visits = (m.visits || []).slice().sort(function (a, b) {
-      return a.date < b.date ? 1 : a.date > b.date ? -1 : 0;
-    });
+    var visits = visitsNewestFirst(m.visits);
     $("visitCount").textContent = visits.length ? "(" + visits.length + "회)" : "";
 
     var list = $("visitList");
@@ -1550,6 +1568,9 @@
   /* ---------- 구글 로그인 · 클라우드 저장 ---------- */
   function showGate(show) { $("gate").classList.toggle("on", !!show); }
   function gateError(msg) { $("gateError").textContent = msg || ""; }
+  function gateStatus(msg) { $("gateStatus").textContent = msg || ""; }
+  // 로그인 단추는 '로그인이 필요하다'는 것이 확인됐을 때만 보인다
+  function showSignIn(show) { $("signInBtn").hidden = !show; }
 
   function startLocalMode() {
     mode = "local";
@@ -1567,6 +1588,8 @@
 
   function startCloudMode() {
     showGate(true);
+    showSignIn(false);                    // 모듈을 받는 동안에는 눌러도 동작하지 않으므로 감춘다
+    gateStatus("불러오는 중…");
     if (/KAKAOTALK|NAVER\(inapp|Instagram|FBAN|FBAV|Line\/|DaumApps/i.test(navigator.userAgent)) {
       gateError("앱 안의 브라우저에서는 구글 로그인이 되지 않습니다. " +
                 "화면 메뉴의 ‘다른 브라우저로 열기’로 Chrome이나 Safari에서 열어 주세요.");
@@ -1599,10 +1622,16 @@
         });
       });
       $("signOutBtn").addEventListener("click", function () {
-        // 저장 대기 중인 변경을 먼저 보낸 뒤 로그아웃
+        // 저장 대기 중인 변경을 먼저 보낸 뒤 로그아웃.
+        // 인터넷이 끊기면 저장이 끝나지 않으므로 3초까지만 기다리고, 못 보낸 변경이 있으면 묻는다.
         var pending = cloud ? cloud.flush() : Promise.resolve();
-        pending.then(function () { return authMod.signOut(auth); },
-                     function () { return authMod.signOut(auth); });
+        var waited = new Promise(function (resolve) { setTimeout(resolve, 3000); });
+        Promise.race([pending, waited]).then(function () {
+          if (cloud && cloud.unsent() &&
+              !confirm("인터넷 연결이 없어 마지막 변경을 아직 보내지 못했습니다.\n" +
+                       "지금 로그아웃하면 그 변경이 사라질 수 있습니다. 그래도 로그아웃할까요?")) return;
+          authMod.signOut(auth);
+        });
       });
 
       authMod.getRedirectResult(auth).catch(function (err) { gateError(authMessage(err)); });
@@ -1618,6 +1647,8 @@
           state = { members: [], districts: [], trash: [] };
           $("account").hidden = true;
           render();
+          gateStatus("");
+          showSignIn(true);
           showGate(true);
           return;
         }
@@ -1633,9 +1664,12 @@
 
         $("account").hidden = false;
         gateError("");
+        showSignIn(false);
+        gateStatus("자료를 불러오는 중…");
         connectDoc(fsMod, db, user);
       });
     }).catch(function () {
+      gateStatus("");
       gateError("로그인 모듈을 불러오지 못했습니다. 인터넷 연결을 확인해 주세요.");
     });
   }
@@ -1644,16 +1678,31 @@
     var spaceId = CFG.spaceId || ("user-" + user.uid);
     var ref = fsMod.doc(db, "spaces", spaceId);
     var timer = null;
-    var firstLoad = true;
+    var serverLoaded = false;     // 서버에서 확인한 자료를 한 번이라도 받았는지
+    var inflight = 0;             // 보냈지만 아직 서버가 받았다고 확인하지 않은 저장 수
+    var lastJson = "";            // 마지막으로 화면에 반영한(또는 보낸) 자료
+
+    function stateJson() {
+      return JSON.stringify([state.members, state.districts, state.trash]);
+    }
 
     var writeNow = function () {
-      return fsMod.setDoc(ref, {
-        members: state.members,
-        districts: state.districts,
-        trash: state.trash,
-        updatedAt: new Date().toISOString(),
-        updatedBy: user.email || user.uid
-      }).catch(function (err) {
+      inflight++;
+      lastJson = stateJson();
+      var p;
+      try {
+        p = fsMod.setDoc(ref, {
+          members: state.members,
+          districts: state.districts,
+          trash: state.trash,
+          updatedAt: new Date().toISOString(),
+          updatedBy: user.email || user.uid
+        });
+      } catch (err) {
+        p = Promise.reject(err);  // 자료 형식 오류는 약속 실패가 아니라 즉시 예외로 나온다
+      }
+      return p.then(function () { inflight--; }, function (err) {
+        inflight--;
         alert("저장에 실패했습니다: " + (err && err.message ? err.message : err));
       });
     };
@@ -1663,7 +1712,7 @@
         if (timer) clearTimeout(timer);
         timer = setTimeout(function () { timer = null; writeNow(); }, 400);
       },
-      // 대기 중인 저장을 바로 보낸다
+      // 대기 중인 저장을 바로 보낸다 (이미 보낸 저장이 끝나기를 기다리지는 않는다)
       flush: function () {
         if (!timer) return Promise.resolve();
         clearTimeout(timer);
@@ -1673,40 +1722,60 @@
       cancel: function () {
         if (timer) { clearTimeout(timer); timer = null; }
       },
+      unsent: function () { return !!timer || inflight > 0; },
       unsub: null
     };
 
-    cloud.unsub = fsMod.onSnapshot(ref, function (snap) {
+    cloud.unsub = fsMod.onSnapshot(ref, { includeMetadataChanges: true }, function (snap) {
       if (snap.metadata.hasPendingWrites) return;   // 내가 방금 쓴 내용
-      if (timer) return;                            // 곧 보낼 내 변경이 있으면 그쪽이 최신
-      var data = snap.exists() ? snap.data() : null;
 
-      if (firstLoad) {
-        firstLoad = false;
+      // 서버에서 자료를 한 번도 받지 못한 채(인터넷이 끊긴 곳 등) 오는 '빈 문서'는 믿지 않는다.
+      // 그대로 쓰면 빈 명단이 보이고, 거기서 고친 내용이 연결되는 순간 서버의 전체 명단을 덮어쓴다.
+      if (!serverLoaded) {
+        if (snap.metadata.fromCache) {
+          gateStatus("인터넷 연결을 기다리는 중입니다. 연결되면 자료를 불러옵니다.");
+          showGate(true);
+          return;
+        }
+        serverLoaded = true;
+
+        // 처음 서버 자료를 받았을 때, 이 브라우저에만 있던 자료를 옮길지 묻는다
+        var first = snap.exists() ? snap.data() : null;
         var stored = loadLocal();
         var local = normalize(stored.members);
-        if ((!data || !data.members || !data.members.length) && local.length) {
+        if ((!first || !first.members || !first.members.length) && local.length) {
           if (confirm("이 브라우저에 저장된 " + local.length + "명의 자료가 있습니다. 구글 계정으로 옮길까요?")) {
             state.members = local;
             state.districts = normalizeDistricts(stored.districts);
             state.trash = normalizeTrash(stored.trash);
             syncDistricts();
             writeNow();
+            gateStatus("");
             showGate(false);
             render();
             return;
           }
         }
       }
+
+      if (timer) return;                            // 곧 보낼 내 변경이 있으면 그쪽이 최신
+      var data = snap.exists() ? snap.data() : null;
+      var json = JSON.stringify(data ? [data.members, data.districts, data.trash] : null);
+      gateStatus("");
+      showGate(false);
+      if (json === lastJson) return;                // 연결 상태만 바뀐 알림 — 다시 그릴 필요 없음
+      lastJson = json;
+
       state.members = normalize(data ? data.members : []);
       state.districts = normalizeDistricts(data ? data.districts : []);
       state.trash = normalizeTrash(data ? data.trash : []);
       syncDistricts();
-      showGate(false);
       render();
       if (openMemberId) renderDetail();             // 열려 있는 상세 창도 새 자료로
     }, function (err) {
+      gateStatus("");
       gateError("자료를 불러오지 못했습니다: " + (err && err.message ? err.message : err));
+      showSignIn(true);                             // 다른 계정으로 다시 로그인할 수 있도록
       showGate(true);
     });
   }
