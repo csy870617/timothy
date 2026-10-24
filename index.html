@@ -305,6 +305,8 @@
     <div class="dlg-body">
       <label class="field"><span>이름</span>
         <input type="text" id="mName" required placeholder="예) 김은혜" /></label>
+      <label class="field"><span>자녀 이름 (선택)</span>
+        <input type="text" id="mChildren" placeholder="예) 이하은, 이하준" /></label>
       <div class="grid2">
         <label class="field"><span>직분</span>
           <input type="text" id="mRole" list="roleList" placeholder="예) 권사" />
@@ -477,6 +479,7 @@
         id: m.id || uid(),
         name: String(m.name || "").trim(),
         role: String(m.role || "").trim(),
+        children: String(m.children || "").trim(),
         district: normalizeDistrictName(m.district),
         contact: String(m.contact || "").trim(),
         memo: String(m.memo || "").trim(),
@@ -676,7 +679,7 @@
 
   function matches(m, q) {
     if (!q) return true;
-    return [m.name, m.role, m.district, m.contact, m.memo].join(" ").toLowerCase().indexOf(q) >= 0;
+    return [m.name, m.role, m.children, m.district, m.contact, m.memo].join(" ").toLowerCase().indexOf(q) >= 0;
   }
 
   function renderBoard() {
@@ -930,6 +933,7 @@
     $("memberDlgTitle").textContent = m ? "성도 정보 수정" : "성도 추가";
     $("mName").value = m ? m.name : "";
     $("mRole").value = m ? (m.role || "") : "";
+    $("mChildren").value = m ? (m.children || "") : "";
     var preset = $("districtFilter").value;
     if (preset === "미배정") preset = "";      // '미배정'은 그룹 이름이 아니다
     fillDistrictSelect(m ? (m.district || "") : preset);
@@ -947,6 +951,7 @@
     var data = {
       name: name,
       role: $("mRole").value.trim(),
+      children: $("mChildren").value.trim(),
       district: selectedDistrict(),
       contact: $("mContact").value.trim(),
       memo: $("mMemo").value.trim()
@@ -1356,6 +1361,7 @@
     }
 
     var meta = [(m.district || "미배정")];
+    if (m.children) meta.push("자녀 " + m.children);
     if (m.contact) meta.push(m.contact);
     var lv = lastVisit(m);
     meta.push(lv ? "최근 심방 " + formatDate(lv.date) + " (" + badgeText(daysSince(lv.date)) + ")"
