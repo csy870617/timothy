@@ -197,6 +197,7 @@
   .dlg-foot { display: flex; gap: 8px; justify-content: flex-end; padding: 0 18px 16px; flex-wrap: wrap; }
   .dlg-foot .left { margin-right: auto; }
 
+  #vKindCustom { margin-top: 6px; }
   .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .care-tag { margin-left: 6px; font-size: 11px; font-weight: 600; padding: 1px 7px;
               border-radius: 999px; background: var(--accent-soft); color: var(--accent); }
@@ -387,6 +388,7 @@
           <input type="date" id="vDate" required /></label>
         <label class="field"><span>구분 (선택)</span>
           <select id="vKind"></select>
+          <input type="text" id="vKindCustom" placeholder="예) 경조사" hidden />
         </label>
       </div>
       <label class="field"><span>심방 내용 (선택)</span>
@@ -1329,6 +1331,7 @@
   }
 
   var VISIT_KINDS = ["전화", "문자", "교회", "가정", "병원"];
+  var KIND_CUSTOM = "__custom__";
 
   function fillKindSelect(current) {
     var sel = $("vKind");
@@ -1344,8 +1347,26 @@
       o.value = k; o.textContent = k;
       sel.appendChild(o);
     });
+    var custom = document.createElement("option");
+    custom.value = KIND_CUSTOM; custom.textContent = "직접 입력…";
+    sel.appendChild(custom);
+
     sel.value = current || "";
+    $("vKindCustom").value = "";
+    $("vKindCustom").hidden = true;
   }
+
+  // 펼침 메뉴에서 고른 구분, '직접 입력'이면 입력한 글자
+  function selectedKind() {
+    var v = $("vKind").value;
+    return v === KIND_CUSTOM ? $("vKindCustom").value.trim() : v;
+  }
+
+  $("vKind").addEventListener("change", function () {
+    var custom = $("vKind").value === KIND_CUSTOM;
+    $("vKindCustom").hidden = !custom;
+    if (custom) $("vKindCustom").focus();
+  });
 
   function resetVisitForm() {
     $("vDate").value = today();
@@ -1477,10 +1498,10 @@
 
     if (editingVisitId) {
       var v = m.visits.filter(function (x) { return x.id === editingVisitId; })[0];
-      if (v) { v.date = date; v.kind = $("vKind").value; v.note = note; }
+      if (v) { v.date = date; v.kind = selectedKind(); v.note = note; }
       editingVisitId = null;
     } else {
-      m.visits.push({ id: uid(), date: date, kind: $("vKind").value, note: note });
+      m.visits.push({ id: uid(), date: date, kind: selectedKind(), note: note });
     }
     save();
     resetVisitForm();
