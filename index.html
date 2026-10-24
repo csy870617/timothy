@@ -164,6 +164,7 @@
   .row .who { flex: 1 1 auto; min-width: 0; }
   .row .name { font-weight: 600; }
   .row .role { color: var(--muted); font-size: 12px; margin-left: 6px; font-weight: 400; }
+  .row .kids { color: var(--muted); font-size: 12px; margin-left: 8px; font-weight: 400; }
   .row .when { color: var(--muted); font-size: 12px; margin-left: 8px; font-weight: 400;
                font-variant-numeric: tabular-nums; }
   .row .last { font-size: 12px; color: var(--muted); margin-top: 1px;
@@ -832,6 +833,12 @@
       role.className = "role";
       role.textContent = m.role;
       name.appendChild(role);
+    }
+    if (m.children) {
+      var kids = document.createElement("span");
+      kids.className = "kids";
+      kids.textContent = "자녀 " + m.children;
+      name.appendChild(kids);
     }
     who.appendChild(name);
 
